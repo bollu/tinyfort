@@ -1,3 +1,3 @@
-# Alcazar
+# tinyfort
 
 a minimal FORTran.
