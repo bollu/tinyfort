@@ -95,6 +95,14 @@ the current state of the environment and returns the value of the expression.
 \end{align*}
 \end{center}
 
+\section{Semantic checks}
+\begin{itemize}
+\item Checking that variables are defined before they are used.
+\item Checking that the variables' type at declaration is respected at every mutation of the variable.
+\item Checking that expressions are well-typed.
+\item Checking that array sizes can be computed at compile time.
+\item 
+\end{itemize}
 \section{Example programs}
 \end{document}
 
