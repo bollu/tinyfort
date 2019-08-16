@@ -1,4 +1,8 @@
-.PHONY: openpaper
+.PHONY: openpaper compile
+
+
+compile: src/Main.lhs
+	ghc src/Main.lhs
 
 openpaper: paper/paper.pdf
 	xdg-open paper/paper.pdf
