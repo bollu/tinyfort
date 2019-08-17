@@ -11,9 +11,16 @@
 \newcommand{\AST}{\texttt{AST} }
 \newcommand{\EXPR}{\texttt{EXPR} }
 \newcommand{\NAME}{\texttt{NAME} }
+\newcommand{\tinyfort}{\texttt{tinyfort}}
 % \newcommand{\sema}[1]{\ensuremath{\left{[} #1 \right{]}}}
 \newcommand{\sema}[1]{\ensuremath{\llbracket #1 \rrbracket}}
 \begin{document}
+\section{Introduction}
+\tinyfort is a strongly typed, fortran inspired imperative programming
+language. It wishes to be as fast as C for common workloads, while providing
+much more safety with a strong type system, array bounds checks, and
+no undefined behavior.
+
 \section{Syntax}
 
 We freely use regular expression syntax to make our syntax definitions shorter.
@@ -49,14 +56,14 @@ lval := name | lval "[" expr "]"
 expr := expr2 == expr2 | expr2 <= expr2 | expr2 >= expr2 | expr2 != expr2 | expr2
 expr2 := expr3 + expr3 | expr3 - expr3 | expr3
 expr3 := expr4 * expr4 | expr4 / expr4
-expr4 := integer | float | bool | lval
+expr4 := integer | float | bool | lval | "(" expr ")" | expr "as" type
 
-type := "int" | "bool" | type "[" expr "]"
+type := "int" | "bool" | "char" | type "[" expr "]"
 
 integer := [0-9]+
 float := integer "." integer
 bool := "true" | "false"
-
+string := """ letter* """
 \end{minted}
 
 \section{Semantics}
@@ -101,7 +108,8 @@ the current state of the environment and returns the value of the expression.
 \item Checking that the variables' type at declaration is respected at every mutation of the variable.
 \item Checking that expressions are well-typed.
 \item Checking that array sizes can be computed at compile time.
-\item 
+\item Check array bounds at compile time and error report those
+  which are obviously wrong. 
 \end{itemize}
 \section{Example programs}
 \end{document}

@@ -1,0 +1,141 @@
+def pow(i:int, k:int) -> int {
+  let pow : int = 1;
+  while k > 0  {
+    pow = pow * i;
+    k = k - 1;
+  }
+  return pow;
+}
+
+# Question 1
+def q1(n: int, k: int) -> bool {
+  let sum : int = 1;
+  let i : int = 0;
+  while i <= n {
+    sum = sum + pow(i, k);
+  }
+  return sum;
+}
+
+# Question 2
+def isprime(n: int) -> bool {
+  let i : int = 2;
+  while (i < n) {
+    if n % i == 0 { return false; }
+  }
+  return true;
+}
+
+# question 3, sum of primes
+def q3(n: int) {
+  let i : int = 2;
+  let sum : int = 0;
+  while i < n {
+    if isprime(i) { sum = sum + i; }
+  }
+  return sum;
+}
+
+# enumerate pythogorean triples
+def q4() {
+  let max : int = 10000000;
+
+  for(let x : int = 0; x < max; x = x+1) {
+    for(let y : int = 0; y < z; y = y+1) {
+      for(let z : int = 0; z < y; z = z+1) {
+        if (x*x + y*y == z*z) {
+          call print(z);
+        }
+      }
+    }
+  }
+}
+
+# print all combinations of [1..n]
+def q5(n: int) {
+  for (let i : int = 0; i < pow(2, n); i = i + 1) {
+    for(let ix: int = 0; ix < n; ix = ix + 1) {
+      if i & ix == true {
+        call print(ix);
+      }
+    }
+    call print("--");
+  }
+}
+
+# insertion sort
+def q6(n: int, arr: int[n]) {
+}
+
+# radix sort
+def q7(n: int, arr: int[n]) {
+}
+
+# merge sort
+def q8(n: int, arr: int[n]) {
+}
+
+# sum of input matrices
+def q9(n: int, m: int, x: int[n, m], y: int[n, m], z: int[n, m]) {
+  for (let i : int = 0; i < n; i = i + 1)
+    for (let j : int = 0; j < m; j = j + 1)
+      z[i, j] = x[i, j] + y[i, j];
+}
+
+# product of input matrices
+def q10(n: int, m: int, o: int, x: int[n][m], y: int[m][o], z: int[n][o]) {
+  for (let i : int = 0; i < n; i = i + 1)
+    for (let j : int = 0; j < m; j = j + 1)
+      for (let k : int = 0; k < o; k = k + 1)
+        z[i, k] = x[i, j] * y[j, k];
+}
+
+# histogram
+def q11() {
+  let f: file = open("corpus.txt");
+
+  let histogram: int[255];
+  for(let i : int = 0; i < 255; i = i + 1) histogram[i] = 0;
+
+  while true  {
+    let c: char = getchar(f);
+    if (c == EOF) break;
+    histogram[c as int] = histogram[c as int] + 1;
+  }
+}
+
+def addWordCount(nwords: int, wordlen: int, table: char[nwords][wordlen], counts: int [nwords], word: char[wordlen) {
+  for(let i: int = 0; i < nwords; i = i + 1) {
+  }
+}
+
+def q12() {
+  let nwords:int = 10000;
+  let wordlen:int = 20;
+
+  let f: file = open("words.txt");
+  let words: char[nwords][wordlen];
+
+  let curword: char[wordlen];
+
+  let done: bool = false;
+  while !done  {
+    let c: char = getchar(f);
+    if (c == EOF) break;
+    if (c == ' ' || c == '\n') continue;
+
+    let ix:int = 0;
+    curword[ix] = c;
+    ix = ix + 1;
+    while true {
+      c = getchar(f);
+      if (c == ' ' || c == '\n') break;
+      if c == EOF { done = true; break; }
+      curword[ix] = c;
+      ix = ix + 1;
+    }
+    addWordCount(nwords, wordlen, table, counts, curword)
+
+  }
+}
+
