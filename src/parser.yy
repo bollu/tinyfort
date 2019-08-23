@@ -124,24 +124,22 @@ expr:
 expr2 : expr3 {
      $$ = $1;
      }
-     | expr3 PLUS expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopAdd, $3); }
-     | expr3 MINUS expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopSub, $3); }
+     | expr3 PLUS expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopAdd, $3); }
+     | expr3 MINUS expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopSub, $3); }
 
 // * , /
 expr3: 
-  expr4 STAR expr4 { $$ = new tf::ExprBinop($1, tf::Binop::BinopMul, $3); }
-  | expr4 DIVIDE expr4 { $$ = new tf::ExprBinop($1, tf::Binop::BinopDiv, $3); }
+  expr4 STAR expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopMul, $3); }
+  | expr4 DIVIDE expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopDiv, $3); }
   | expr4 { $$ = $1; }
 
 
 
 // root literals
-expr4 : INTEGER {
-     $$ = new tf::ExprInt($1);
-     } 
-     | lval {
-     $$ = new tf::ExprLVal($1);
-     }
+expr4: 
+     OPENPAREN expr CLOSEPAREN { $$ = $2; }
+     |  INTEGER { $$ = new tf::ExprInt($1); } 
+     | lval { $$ = new tf::ExprLVal($1); }
 
 exprtuple_: 
   exprtuple_ COMMA expr  { $$ = $1; $$->push_back($3); }
