@@ -1,1 +1,3 @@
-def main() 
+def main()  {
+   set name = 10;
+}

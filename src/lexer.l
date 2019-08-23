@@ -33,7 +33,6 @@ int compile_program(tf::Program *p);
 
 
 %%
-"="            return ASSIGN; 
 "("            return OPENPAREN; 
 ")"            return CLOSEPAREN;
 "{"            return OPENFLOWER;
@@ -42,6 +41,7 @@ int compile_program(tf::Program *p);
 ","            return COMMA;
 ":"            return COLON;
 "->"           return THINARROW;
+"="            return EQUALS;
 "set"          return SET;
 "def"          return DEF;
 

@@ -29,6 +29,10 @@ std::vector<tf::FnDefn *> g_fndefns;
 %}
 
 %union{
+  tf::Block *block;
+  std::vector<tf::Stmt *>*stmts;
+  tf::Stmt *stmt;
+  tf::Expr *expr;
   std::string *s;
   tf::FnDefn *fndefn;
   int i;
@@ -51,9 +55,14 @@ std::vector<tf::FnDefn *> g_fndefns;
 %token DEF
 %token BINDING
 %token SET
+%token EQUALS
 
 %start toplevel
 %type <program> program
+%type <block>	block;
+%type <stmt>	stmt;
+%type <expr>	expr;
+%type <stmts>	stmts;
 %type <UNDEF> topleveldefn;
 %type <fndefn> fndefn
 %token <i>	INTEGER;
@@ -70,8 +79,30 @@ program:
 topleveldefn:
   fndefn { g_fndefns.push_back($1); }
 
-fndefn: DEF IDENTIFIER OPENPAREN CLOSEPAREN {
-      $$ = new tf::FnDefn(*$2);
+block: OPENFLOWER CLOSEFLOWER { $$ = new tf::Block({}); }
+     | OPENFLOWER stmts CLOSEFLOWER {
+         $$ = new tf::Block(*$2);
+     }
+
+expr : INTEGER {
+     $$ = new tf::ExprInt($1);
+     }
+
+stmt : SET IDENTIFIER EQUALS expr SEMICOLON {
+     $$ = new tf::StmtSet(*$2, $4);
+     }
+stmts: stmts stmt {
+         $$ = $1;
+         $$->push_back($2);
+     }
+     | stmt {
+       $$ = new std::vector<tf::Stmt*>();
+       $$->push_back($1);
+     }
+     
+
+fndefn: DEF IDENTIFIER OPENPAREN CLOSEPAREN block {
+      $$ = new tf::FnDefn(*$2, $5);
       }
 %%
 
