@@ -12,9 +12,37 @@ namespace tf{
     using ConstructorName = std::string;
     using TypeName = std::string;
 
+    enum Binop {
+        BinopAdd, BinopSub, BinopMul, BinopDiv, BinopOr, BinopLt, BinopLeq,
+        BinopGt, BinopGeq, BinopEq, BinopNeq
+    };
+void printBinop(std::ostream &o, tf::Binop bp);
+    
+
     class Expr {
         public:
             virtual void print(std::ostream &o, int depth=0) = 0;
+    };
+
+    class ExprBinop : public Expr {
+        public:
+        Expr *l;
+        Binop op;
+        Expr *r;
+
+        ExprBinop(Expr *l, Binop op, Expr *r) : l(l), op(op),r(r) {
+        };
+        
+        void print(std::ostream &o, int depth=0) {
+            o <<"(";
+            l->print(o, depth); 
+            o << " ";
+            printBinop(o, op);
+            o << " ";
+            r->print(o, depth);
+            o << ")";
+        }
+
     };
 
     class ExprInt : public Expr {
@@ -53,8 +81,9 @@ namespace tf{
             for(auto s: stmts) {
                 align(o, depth);
                 s->print(o, depth+2);
+                o << "\n";
             }
-            o << "\n}";
+            o << "}";
         }
     };
 

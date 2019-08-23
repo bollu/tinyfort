@@ -44,6 +44,15 @@ int compile_program(tf::Program *p);
 "="            return EQUALS;
 "set"          return SET;
 "def"          return DEF;
+"+"          return PLUS;
+"-"          return MINUS;
+"*"          return STAR;
+"/"          return DIVIDE;
+"<"          return LT;
+"<="          return LEQ;
+"=="          return CMPEQ;
+"!="          return CMPNEQ;
+">="          return GEQ;
 
 [ \t]          ;
 

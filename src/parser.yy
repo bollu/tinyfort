@@ -56,12 +56,25 @@ std::vector<tf::FnDefn *> g_fndefns;
 %token BINDING
 %token SET
 %token EQUALS
+%token PLUS
+%token MINUS
+%token STAR
+%token DIVIDE
+%token LT
+%token GT
+%token LEQ;
+%token CMPEQ;
+%token CMPNEQ;
+%token GEQ;
 
 %start toplevel
 %type <program> program
 %type <block>	block;
 %type <stmt>	stmt;
 %type <expr>	expr;
+%type <expr>	expr2;
+%type <expr>	expr3;
+%type <expr>	expr4;
 %type <stmts>	stmts;
 %type <UNDEF> topleveldefn;
 %type <fndefn> fndefn
@@ -84,9 +97,29 @@ block: OPENFLOWER CLOSEFLOWER { $$ = new tf::Block({}); }
          $$ = new tf::Block(*$2);
      }
 
-expr : INTEGER {
-     $$ = new tf::ExprInt($1);
+expr : expr2 {
+     $$ = $1;
      }
+     | expr2 PLUS expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopAdd, $3); }
+     | expr2 MINUS expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopSub, $3); }
+
+// * , /
+expr2: 
+  expr3 STAR expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopMul, $3); }
+  | expr3 DIVIDE expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopDiv, $3); }
+  | expr3 { $$ = $1; }
+
+// relational
+expr3: 
+     expr4 LEQ expr4 { $$ = new tf::ExprBinop($1, tf::Binop::BinopLeq, $3); }
+     | expr4  { $$ = $1; }
+
+
+// root literals
+expr4 : INTEGER {
+     $$ = new tf::ExprInt($1);
+     } 
+
 
 stmt : SET IDENTIFIER EQUALS expr SEMICOLON {
      $$ = new tf::StmtSet(*$2, $4);
