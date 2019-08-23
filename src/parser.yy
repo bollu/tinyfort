@@ -61,7 +61,7 @@ std::vector<tf::FnDefn *> g_fndefns;
 %%
 toplevel:
         program {
-                  g_program = new tf::Program();
+                  g_program = new tf::Program(g_fndefns);
               }
 program:
   program topleveldefn
