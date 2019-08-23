@@ -132,6 +132,7 @@ stmt : SET IDENTIFIER EQUALS expr SEMICOLON {
     | WHILE expr block {
          $$ = new tf::StmtWhileLoop($2, $3);
      }
+
 stmts: stmts stmt {
          $$ = $1;
          $$->push_back($2);

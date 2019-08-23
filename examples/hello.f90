@@ -5,3 +5,7 @@ def main()  {
      set i = 0;
    }
 }
+
+def foo() {
+  set j = 10;
+}
