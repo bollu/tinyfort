@@ -1,7 +1,7 @@
 def main()  {
    set name = 10;
    set value = 20 / 50 + 30 * 40 <= 10;
-   while 20 <= 10 {
+   while xx <= 10 {
      set i = 0;
    }
 }

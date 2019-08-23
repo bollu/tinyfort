@@ -124,6 +124,9 @@ expr3:
 expr4 : INTEGER {
      $$ = new tf::ExprInt($1);
      } 
+     | IDENTIFIER {
+        $$ = new tf::ExprIdent(*$1);
+     }
 
 
 stmt : SET IDENTIFIER EQUALS expr SEMICOLON {

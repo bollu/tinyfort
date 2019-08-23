@@ -66,7 +66,7 @@ class ExprIdent : public Expr {
     ExprIdent(std::string s) : s(s){};
 
     void print(std::ostream &o, int depth = 0) { o << s; }
-}
+};
 
 class Stmt {
    public:
