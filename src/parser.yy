@@ -97,22 +97,23 @@ block: OPENFLOWER CLOSEFLOWER { $$ = new tf::Block({}); }
          $$ = new tf::Block(*$2);
      }
 
-expr : expr2 {
-     $$ = $1;
-     }
-     | expr2 PLUS expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopAdd, $3); }
-     | expr2 MINUS expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopSub, $3); }
-
-// * , /
-expr2: 
-  expr3 STAR expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopMul, $3); }
-  | expr3 DIVIDE expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopDiv, $3); }
-  | expr3 { $$ = $1; }
+expr: 
+     expr2 LEQ expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopLeq, $3); }
+     | expr2  { $$ = $1; }
 
 // relational
+expr2 : expr3 {
+     $$ = $1;
+     }
+     | expr3 PLUS expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopAdd, $3); }
+     | expr3 MINUS expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopSub, $3); }
+
+// * , /
 expr3: 
-     expr4 LEQ expr4 { $$ = new tf::ExprBinop($1, tf::Binop::BinopLeq, $3); }
-     | expr4  { $$ = $1; }
+  expr4 STAR expr4 { $$ = new tf::ExprBinop($1, tf::Binop::BinopMul, $3); }
+  | expr4 DIVIDE expr4 { $$ = new tf::ExprBinop($1, tf::Binop::BinopDiv, $3); }
+  | expr4 { $$ = $1; }
+
 
 
 // root literals

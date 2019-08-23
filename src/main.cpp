@@ -16,6 +16,9 @@ void tf::printBinop(std::ostream &o, tf::Binop bp) {
         case tf::BinopMul: o << "*"; return;
         case tf::BinopDiv: o << "/"; return;
         case tf::BinopOr: o << "||"; return;
+        case tf::BinopLeq: o << "<="; return;
+        case tf::BinopGeq: o << ">="; return;
+        default: assert(false && "unreachable");
     }
 }
 
