@@ -44,7 +44,7 @@ int compile_program(tf::Program *p);
 ":"            return COLON;
 "->"           return THINARROW;
 "="            return EQUALS;
-"set"          return SET;
+"let"          return LET;
 "def"          return DEF;
 "+"          return PLUS;
 "-"          return MINUS;
@@ -59,6 +59,9 @@ int compile_program(tf::Program *p);
 "for"          return FOR;
 "if"          return IF;
 "else"          return ELSE;
+"int"          return INT;
+"float"          return FLOAT;
+"bool"          return BOOL;
 
 [ \t]          ;
 

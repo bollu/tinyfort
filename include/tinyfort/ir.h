@@ -3,6 +3,7 @@
 #include <set>
 #include <sstream>
 #include <vector>
+#include <assert.h>
 
 using namespace std;
 
@@ -30,6 +31,63 @@ void printBinop(std::ostream &o, tf::Binop bp);
 
 class Block;
 
+
+enum TypeBaseName {
+    Int,
+    Float,
+    Bool
+};
+
+class Type {
+    public:
+    virtual void print(std::ostream &o, int depth = 0) = 0;
+
+
+    static void printTypeBaseName(std::ostream &o, TypeBaseName t) {
+        switch(t) {
+            case Int: o << "int"; return;
+            case Float: o << "float"; return;
+            case Bool: o << "bool"; return;
+        }
+        assert(false && "unreachable");
+    }
+};
+
+class TypeBase : public Type {
+public:
+    TypeBaseName t;
+
+    TypeBase(TypeBaseName t) : t(t) {};
+    
+    void print(std::ostream &o, int depth = 0) {
+        printTypeBaseName(o, t);
+    }
+};
+
+class Expr {
+   public:
+    virtual void print(std::ostream &o, int depth = 0) = 0;
+};
+
+class TypeArray : public Type {
+public:
+    TypeBaseName t;
+    std::vector<Expr *> sizes;
+
+    TypeArray(TypeBaseName t, std::vector<Expr *> sizes) : t(t), sizes(sizes)
+    {}
+
+    void print(std::ostream &o, int depth = 0) {
+        printTypeBaseName(o, t);
+        o << "[";
+        for(unsigned i = 0; i < sizes.size(); ++i) {
+            sizes[i]->print(o, depth);
+            if (i < sizes.size() - 1) o << ", ";
+        }
+        o << "]";
+    }
+};
+
 class LVal {
    public:
     virtual void print(std::ostream &o, int depth = 0) = 0;
@@ -43,10 +101,6 @@ class LValIdent : public LVal {
     void print(std::ostream &o, int depth = 0) { o << s; }
 };
 
-class Expr {
-   public:
-    virtual void print(std::ostream &o, int depth = 0) = 0;
-};
 
 class LValArray : public LVal {
     public:
@@ -121,14 +175,27 @@ struct Block {
     }
 };
 
-class StmtSet : public Stmt {
+class StmtLet : public Stmt {
    public:
-    std::string lhs;
-    Expr *rhs;
-    StmtSet(std::string lhs, Expr *rhs) : lhs(lhs), rhs(rhs){};
+    std::string name;
+    Type *ty;
+    StmtLet(std::string name, Type *ty) : name(name), ty(ty){};
     void print(std::ostream &o, int depth = 0) {
         o << "let ";
-        o << lhs;
+        o << name;
+        o << " : ";
+        ty->print(o, depth);
+        o << ";";
+    }
+};
+
+class StmtSet : public Stmt {
+   public:
+    LVal *lval;
+    Expr *rhs;
+    StmtSet(LVal *lval, Expr *rhs) : lval(lval), rhs(rhs){};
+    void print(std::ostream &o, int depth = 0) {
+        lval->print(o, depth);
         o << " = ";
         rhs->print(o, depth);
         o << ";";

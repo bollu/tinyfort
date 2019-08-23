@@ -1,12 +1,14 @@
 def main()  {
-   set name = 10;
-   set value = 20 / 50 + 30 * 40 <= 10;
+   let x : int;
+   let x : int[1+1, 10];
+   name[10] = 10;
+   value = 20 / 50 + 30 * 40 <= 10;
 
    while xx[1, xx[1]] <= 10 {
-     set i = 0;
+     i = 0;
    }
 }
 
 def foo() {
-  set j = 10;
+  j = 10;
 }

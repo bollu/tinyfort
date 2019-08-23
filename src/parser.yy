@@ -37,6 +37,7 @@ std::vector<tf::FnDefn *> g_fndefns;
   tf::LVal *lval;
   std::string *s;
   tf::FnDefn *fndefn;
+  tf::Type *type;
   int i;
 }
 
@@ -56,7 +57,7 @@ std::vector<tf::FnDefn *> g_fndefns;
 %token CLOSEFLOWER
 %token DEF
 %token BINDING
-%token SET
+%token LET
 %token EQUALS
 %token PLUS
 %token MINUS
@@ -74,6 +75,9 @@ std::vector<tf::FnDefn *> g_fndefns;
 %token WHILE;
 %token OPENSQUARE;
 %token CLOSESQUARE;
+%token INT;
+%token FLOAT;
+%token BOOL;
 
 %start toplevel
 %type <program> program
@@ -89,6 +93,10 @@ std::vector<tf::FnDefn *> g_fndefns;
 %type <stmts>	stmts;
 %type <UNDEF> topleveldefn;
 %type <fndefn> fndefn
+%type <typebase> typebase;
+%type <type>	basetype;
+%type <type>	type;
+
 %token <i>	INTEGER;
 %token <s>	IDENTIFIER;
 %%
@@ -150,17 +158,28 @@ lval : IDENTIFIER {
    $$ = new tf::LValArray(*$1, *$2);
  }
 
+type : basetype {
+     $$ = $1;
+ } | basetype exprtuple {
+     $$ = new tf::TypeArray(((tf::TypeBase*)$1)->t, *$2);
+ }
 
+basetype: INT {
+        $$ = new tf::TypeBase(tf::TypeBaseName::Int);
+        }
+    | FLOAT {
+        $$ = new tf::TypeBase(tf::TypeBaseName::Float);
+    }
 
-stmt : SET IDENTIFIER EQUALS expr SEMICOLON {
-         $$ = new tf::StmtSet(*$2, $4);
+stmt : lval EQUALS expr SEMICOLON {
+         $$ = new tf::StmtSet($1, $3);
      }
     | WHILE expr block {
          $$ = new tf::StmtWhileLoop($2, $3);
      }
-    | FOR expr block {
-         $$ = new tf::StmtWhileLoop($2, $3);
-     }
+    | LET IDENTIFIER COLON type SEMICOLON {
+       $$ = new tf::StmtLet(*$2, $4);
+    }
 
 stmts: stmts stmt {
          $$ = $1;
