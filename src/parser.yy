@@ -3,14 +3,11 @@
 #include <stack>
 #include <iostream>
 #include <vector>
-#include "tinyfor/stgir.h"
-
+#include "tinyfort/ir.h"
 using namespace std;
 
 #define YYERROR_VERBOSE
 using namespace std;
-using namespace stg; 
-using namespace llvm;
 //extern "C" int yylex(void);
 //extern "C" int yyparse(void);
 int yylex(void);
@@ -26,28 +23,16 @@ void yyerror(const char *s) {
 
 
 tf::Program *g_program;
-std::vector<FnDefn *> g_fndefns;
+std::vector<tf::FnDefn *> g_fndefns;
 
 
 %}
 
-// %union{
-//   std::vector<Atom *> *atomslist;
-//   std::vector<TypeName> *typeslist;
-//   std::vector<stg::CaseAlt*> *altslist;
-//   stg::Atom *atom;
-//   stg::CaseAlt *alt;
-//   stg::Expression *expr;
-//   stg::Lambda *lambda;
-//   stg::Binding *binding;
-//   stg::DataType *datatype;
-//   stg::Parameter *param;
-//   stg::DataConstructor *dataconstructor;
-//   std::string *constructorName;
-//   stg::TypeRaw *typeraw;
-// 
-//   bool UNDEF;
-// }
+%union{
+  std::string *s;
+  tf::FnDefn *fndefn;
+  int i;
+}
 
 %token ASSIGN
 %token OPENPAREN
@@ -63,18 +48,16 @@ std::vector<FnDefn *> g_fndefns;
 %token LAMBDA
 %token OPENFLOWER
 %token CLOSEFLOWER
+%token DEF
 %token BINDING
-%token DATA
-%token LET
-%token IN
-%token DEFAULT
+%token SET
 
 %start toplevel
-%token <atom>	ATOMINT
-%token <atom>	ATOMSTRING
-
 %type <program> program
-
+%type <UNDEF> topleveldefn;
+%type <fndefn> fndefn
+%token <i>	INTEGER;
+%token <s>	IDENTIFIER;
 %%
 toplevel:
         program {
@@ -87,21 +70,8 @@ program:
 topleveldefn:
   fndefn { g_fndefns.push_back($1); }
 
-atom: 
-  ATOMINT | ATOMSTRING
-
-atoms_: 
-  atoms_ atom {
-    $$ = $1;
-    $$->push_back($2);
-  }
-  | atom {  $$ = new std::vector<Atom*>(); $$->push_back($1); }
-
-atomlist: OPENPAREN atoms_ CLOSEPAREN {
-  $$ = $2;
-}
-| OPENPAREN CLOSEPAREN {
-    $$ = new std::vector<Atom*>();
-}
+fndefn: DEF IDENTIFIER OPENPAREN CLOSEPAREN {
+      $$ = new tf::FnDefn(*$2);
+      }
 %%
 

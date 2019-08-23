@@ -44,6 +44,7 @@ include_directories(include ${LLVM_INCLUDE_DIRS} include/tinyfort)
 add_executable(tinyfort
     ${BISON_Parser_OUTPUTS}
     ${FLEX_Lexer_OUTPUTS}
+    src/main.cpp
     )
 
 target_link_libraries(tinyfort ${LLVM_LIBS}  -lstdc++)
