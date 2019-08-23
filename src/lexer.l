@@ -53,6 +53,10 @@ int compile_program(tf::Program *p);
 "=="          return CMPEQ;
 "!="          return CMPNEQ;
 ">="          return GEQ;
+"while"          return WHILE;
+"for"          return FOR;
+"if"          return IF;
+"else"          return ELSE;
 
 [ \t]          ;
 

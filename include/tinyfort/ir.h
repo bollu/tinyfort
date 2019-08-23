@@ -19,6 +19,8 @@ namespace tf{
 void printBinop(std::ostream &o, tf::Binop bp);
     
 
+class Block;
+
     class Expr {
         public:
             virtual void print(std::ostream &o, int depth=0) = 0;
@@ -58,6 +60,23 @@ void printBinop(std::ostream &o, tf::Binop bp);
         public:
             virtual void print(std::ostream &o, int depth=0) = 0;
     };
+
+    struct Block {
+        std::vector<Stmt*> stmts;
+        Block(std::vector<Stmt*>stmts) : stmts(stmts) {};
+
+        void print(std::ostream &o, int depth=0) {
+            align(o, depth);
+            o << "{\n";
+            for(auto s: stmts) {
+                align(o, depth+2);
+                s->print(o, depth+2);
+                o << "\n";
+            }
+            align(o, depth); o << "}";
+        }
+    };
+
     class StmtSet : public Stmt{
         public:
             std::string lhs;
@@ -72,20 +91,19 @@ void printBinop(std::ostream &o, tf::Binop bp);
             }
     };
 
-    struct Block {
-        std::vector<Stmt*> stmts;
-        Block(std::vector<Stmt*>stmts) : stmts(stmts) {};
-
-        void print(std::ostream &o, int depth=0) {
-            o << "{\n";
-            for(auto s: stmts) {
-                align(o, depth);
-                s->print(o, depth+2);
-                o << "\n";
+    class StmtWhileLoop: public Stmt {
+        public:
+            Expr *cond;
+            Block *inner;
+            StmtWhileLoop(Expr *cond, Block *inner)
+                : cond(cond), inner(inner) {};
+            void print(std::ostream &o, int depth=0) {
+                o << "while ";
+                cond->print(o, depth);
+                inner->print(o, depth);
             }
-            o << "}";
-        }
     };
+
 
     struct FnDefn { 
         std::string name;
@@ -95,7 +113,7 @@ void printBinop(std::ostream &o, tf::Binop bp);
         void print(std::ostream &o, int depth=0) {
             align(o, depth);
             o << "def " << name << "(" << ")" << "\n";
-            b->print(o, 2);
+            b->print(o, depth);
         }
 
     };

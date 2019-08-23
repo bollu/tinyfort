@@ -66,6 +66,10 @@ std::vector<tf::FnDefn *> g_fndefns;
 %token CMPEQ;
 %token CMPNEQ;
 %token GEQ;
+%token IF;
+%token ELSE;
+%token FOR;
+%token WHILE;
 
 %start toplevel
 %type <program> program
@@ -123,7 +127,10 @@ expr4 : INTEGER {
 
 
 stmt : SET IDENTIFIER EQUALS expr SEMICOLON {
-     $$ = new tf::StmtSet(*$2, $4);
+         $$ = new tf::StmtSet(*$2, $4);
+     }
+    | WHILE expr block {
+         $$ = new tf::StmtWhileLoop($2, $3);
      }
 stmts: stmts stmt {
          $$ = $1;
