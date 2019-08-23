@@ -42,7 +42,6 @@ add_flex_bison_dependency(Lexer Parser)
 include_directories(include ${LLVM_INCLUDE_DIRS} include/tinyfort)
 
 add_executable(tinyfort
-    src/main.cpp
     ${BISON_Parser_OUTPUTS}
     ${FLEX_Lexer_OUTPUTS}
     )
