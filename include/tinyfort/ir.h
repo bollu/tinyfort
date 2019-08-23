@@ -7,6 +7,7 @@
 using namespace std;
 
 void align(std::ostream &o, int depth);
+
 namespace tf {
 using Identifier = std::string;
 using ConstructorName = std::string;
@@ -29,9 +30,40 @@ void printBinop(std::ostream &o, tf::Binop bp);
 
 class Block;
 
+class LVal {
+   public:
+    virtual void print(std::ostream &o, int depth = 0) = 0;
+};
+
+class LValIdent : public LVal {
+   public:
+    std::string s;
+    LValIdent(std::string s) : s(s){};
+
+    void print(std::ostream &o, int depth = 0) { o << s; }
+};
+
 class Expr {
    public:
     virtual void print(std::ostream &o, int depth = 0) = 0;
+};
+
+class LValArray : public LVal {
+    public:
+        std::string s;
+        std::vector<Expr *> indeces;
+        LValArray(std::string s, std::vector<Expr *> indeces)
+            : s(s), indeces(indeces) {};
+        void print(std::ostream &o, int depth = 0) { 
+            o << s;
+            o << "[";
+            for(unsigned i = 0; i < indeces.size(); ++i) {
+                indeces[i]->print(o, depth);
+                if (i < indeces.size() - 1) o << ", ";
+            }
+            o << "]";
+        }
+
 };
 
 class ExprBinop : public Expr {
@@ -60,12 +92,11 @@ class ExprInt : public Expr {
     void print(std::ostream &o, int depth = 0) { o << i; }
 };
 
-class ExprIdent : public Expr {
+class ExprLVal : public Expr {
    public:
-    std::string s;
-    ExprIdent(std::string s) : s(s){};
-
-    void print(std::ostream &o, int depth = 0) { o << s; }
+    LVal *lval;
+    ExprLVal(LVal *lval) : lval(lval){};
+    void print(std::ostream &o, int depth = 0) { lval->print(o, depth); }
 };
 
 class Stmt {

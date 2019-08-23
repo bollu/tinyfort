@@ -31,8 +31,10 @@ std::vector<tf::FnDefn *> g_fndefns;
 %union{
   tf::Block *block;
   std::vector<tf::Stmt *>*stmts;
+  std::vector<tf::Expr *>*exprtuple;
   tf::Stmt *stmt;
   tf::Expr *expr;
+  tf::LVal *lval;
   std::string *s;
   tf::FnDefn *fndefn;
   int i;
@@ -70,15 +72,20 @@ std::vector<tf::FnDefn *> g_fndefns;
 %token ELSE;
 %token FOR;
 %token WHILE;
+%token OPENSQUARE;
+%token CLOSESQUARE;
 
 %start toplevel
 %type <program> program
 %type <block>	block;
 %type <stmt>	stmt;
+%type <lval>	lval;
 %type <expr>	expr;
 %type <expr>	expr2;
 %type <expr>	expr3;
 %type <expr>	expr4;
+%type <exprtuple> exprtuple_;
+%type <exprtuple> exprtuple;
 %type <stmts>	stmts;
 %type <UNDEF> topleveldefn;
 %type <fndefn> fndefn
@@ -124,15 +131,34 @@ expr3:
 expr4 : INTEGER {
      $$ = new tf::ExprInt($1);
      } 
-     | IDENTIFIER {
-        $$ = new tf::ExprIdent(*$1);
+     | lval {
+     $$ = new tf::ExprLVal($1);
      }
+
+exprtuple_: 
+  exprtuple_ COMMA expr  { $$ = $1; $$->push_back($3); }
+  | expr { $$ = new std::vector<tf::Expr *>(); $$->push_back($1); }
+
+
+exprtuple: OPENSQUARE CLOSESQUARE { $$ = new std::vector<tf::Expr *>(); } 
+         | OPENSQUARE exprtuple_ CLOSESQUARE { $$ = $2; }
+
+lval : IDENTIFIER {
+    $$ = new tf::LValIdent(*$1);
+ } |
+ IDENTIFIER exprtuple {
+   $$ = new tf::LValArray(*$1, *$2);
+ }
+
 
 
 stmt : SET IDENTIFIER EQUALS expr SEMICOLON {
          $$ = new tf::StmtSet(*$2, $4);
      }
     | WHILE expr block {
+         $$ = new tf::StmtWhileLoop($2, $3);
+     }
+    | FOR expr block {
          $$ = new tf::StmtWhileLoop($2, $3);
      }
 

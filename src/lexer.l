@@ -35,6 +35,8 @@ int compile_program(tf::Program *p);
 %%
 "("            return OPENPAREN; 
 ")"            return CLOSEPAREN;
+"["            return OPENSQUARE; 
+"]"            return CLOSESQUARE;
 "{"            return OPENFLOWER;
 "}"            return CLOSEFLOWER;
 ";"            return SEMICOLON;
