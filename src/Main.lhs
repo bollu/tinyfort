@@ -16,6 +16,8 @@
 % \newcommand{\sema}[1]{\ensuremath{\left{[} #1 \right{]}}}
 \newcommand{\sema}[1]{\ensuremath{\llbracket #1 \rrbracket}}
 \newenvironment{code}{\VerbatimEnvironment \begin{minted}{haskell}}{\end{minted}}
+
+
 \begin{document}
 \section{Introduction}
 \tinyfort is a strongly typed, fortran inspired imperative programming
