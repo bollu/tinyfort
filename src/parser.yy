@@ -32,6 +32,7 @@ std::vector<tf::FnDefn *> g_fndefns;
   tf::Block *block;
   std::vector<tf::Stmt *>*stmts;
   std::vector<tf::Expr *>*exprtuple;
+  std::vector<pair<std::string, tf::Type*>>*fnparams;
   tf::Stmt *stmt;
   tf::Expr *expr;
   tf::LVal *lval;
@@ -92,7 +93,9 @@ std::vector<tf::FnDefn *> g_fndefns;
 %type <exprtuple> exprtuple;
 %type <stmts>	stmts;
 %type <UNDEF> topleveldefn;
-%type <fndefn> fndefn
+%type <fndefn> fndefn;
+%type <fnparams> fnparams;
+%type <fnparams> fnparamsNonEmpty;
 %type <typebase> typebase;
 %type <type>	basetype;
 %type <type>	type;
@@ -175,8 +178,8 @@ stmt : lval EQUALS expr SEMICOLON {
     | WHILE expr block {
          $$ = new tf::StmtWhileLoop($2, $3);
      }
-    | LET IDENTIFIER COLON type SEMICOLON {
-       $$ = new tf::StmtLet(*$2, $4);
+    | IDENTIFIER COLON type SEMICOLON {
+       $$ = new tf::StmtLet(*$1, $3);
     }
 
 stmts: stmts stmt {
@@ -189,8 +192,23 @@ stmts: stmts stmt {
      }
      
 
-fndefn: DEF IDENTIFIER OPENPAREN CLOSEPAREN block {
-      $$ = new tf::FnDefn(*$2, $5);
-      }
+fnparams: OPENPAREN CLOSEPAREN {
+        $$ = new vector<pair<string, tf::Type*>>();
+} | OPENPAREN fnparamsNonEmpty CLOSEPAREN {
+  $$ = $2;
+}
+
+fnparamsNonEmpty: 
+ IDENTIFIER COLON type { 
+                $$ = new vector<pair<string, tf::Type*>>();
+                $$->push_back({*$1, $3});
+ } | fnparamsNonEmpty COMMA IDENTIFIER COLON type {
+   $$ = $1;
+   $$->push_back({*$3, $5});
+ }
+
+fndefn: DEF IDENTIFIER fnparams block {
+      $$ = new tf::FnDefn(*$2, *$3, $4);
+  }
 %%
 

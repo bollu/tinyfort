@@ -1,6 +1,6 @@
-def main()  {
-   let x : int;
-   let x : int[1+1, 10];
+def main(i:int)  {
+   x : int;
+   x : int[1+1, 10];
    name[10] = 10;
    value = 10 + 20 *( 20+ 30);
 
@@ -9,6 +9,6 @@ def main()  {
    }
 }
 
-def foo() {
+def foo(i:int, j:int) {
   j = 10;
 }

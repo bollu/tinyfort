@@ -216,13 +216,25 @@ class StmtWhileLoop : public Stmt {
 
 struct FnDefn {
     std::string name;
+    std::vector<pair<string, tf::Type*>> formals;
     Block *b;
-    FnDefn(std::string name, Block *b) : name(name), b(b){};
+    FnDefn(std::string name, std::vector<pair<string, Type*>> formals,
+            Block *b) : name(name), formals(formals), b(b){};
 
     void print(std::ostream &o, int depth = 0) {
         align(o, depth);
-        o << "def " << name << "("
-          << ") ";
+        o << "def " << name << "(";
+
+        for(int i = 0; i < (int)formals.size(); ++i) {
+            const auto it = formals[i];
+            o << it.first << ":";
+            it.second->print(o);
+            if (i < (int)formals.size() - 1) {
+                o << ", ";
+            }
+        }
+
+        o << ") ";
         b->print(o, depth);
     }
 };

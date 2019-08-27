@@ -75,6 +75,7 @@ int compile_program(tf::Program *p);
                     return IDENTIFIER;
                  }
 
+
 #.*            { /* DO NOTHING */ }
 \n             { ++g_lexer_line_num; }
 %%
