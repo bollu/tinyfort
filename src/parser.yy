@@ -181,6 +181,9 @@ stmt : lval EQUALS expr SEMICOLON {
     | IDENTIFIER COLON type SEMICOLON {
        $$ = new tf::StmtLet(*$1, $3);
     }
+    | expr SEMICOLON {
+         $$ = new tf::StmtExpr($1);
+    }
 
 stmts: stmts stmt {
          $$ = $1;

@@ -214,6 +214,18 @@ class StmtWhileLoop : public Stmt {
     }
 };
 
+class StmtExpr : public Stmt {
+   public:
+       Expr *e;
+
+       StmtExpr(Expr *e) : e (e) {};
+       void print(std::ostream &o, int depth = 0) {
+           e ->print(o, depth);
+           o << ";";
+       }
+
+};
+
 struct FnDefn {
     std::string name;
     std::vector<pair<string, tf::Type*>> formals;

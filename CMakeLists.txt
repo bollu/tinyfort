@@ -3,10 +3,12 @@ project(tinyfort C CXX)
 
 # Colors when compiling with clang
 # set(CMAKE_CXX_FLAGS "-fdiagnostics-color=always -fno-rtti -g -Wall -Werror")
-set(CMAKE_CXX_FLAGS "-fdiagnostics-color=always -fno-rtti -g -Wall")
+set(CMAKE_CXX_FLAGS "-fdiagnostics-color=always  -g -Wall")
 
 # LLVM
 find_package(LLVM REQUIRED)
+
+find_library(Z3 REQUIRED)
 
 # Boost
 find_package(Boost REQUIRED)
@@ -24,11 +26,25 @@ llvm_map_components_to_libnames(LLVM_LIBS Target
     ipo Passes Analysis
     nativecodegen MC)
 
-#llvm_map_components_to_libnames(LLVM_LIBS AllTargetsAsmPrinters 
-#    AllTargetsAsmParsers Core Support ORCJIT MCJIT ExecutionEngine
-#    ASMPrinter CodeGen AllTargetsDescs AllTargetsInfos TransformUtils Object
-#    ipo Passes Analysis
-#    nativecodegen MC)
+llvm_map_components_to_libnames(LLVM_LIBS 
+  AllTargetsAsmPrinters 
+  AllTargetsAsmParsers
+  Core
+  Support
+  ORCJIT
+  MCJIT
+  ExecutionEngine
+  ASMPrinter
+  CodeGen
+  AllTargetsDescs
+  AllTargetsInfos
+  TransformUtils
+  Object
+  ipo
+  Passes
+  Analysis
+  nativecodegen
+  MC)
 
 # FLEX AND BISON
 find_package(BISON)
@@ -47,7 +63,7 @@ add_executable(tinyfort
     src/main.cpp
     )
 
-target_link_libraries(tinyfort ${LLVM_LIBS}  -lstdc++)
+target_link_libraries(tinyfort ${LLVM_LIBS}  -lstdc++ ${Z3_LIBS})
 set_target_properties(tinyfort PROPERTIES CXX_STANDARD 14)
 
 # CLANG FORMAT
