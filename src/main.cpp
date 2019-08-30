@@ -184,6 +184,22 @@ std::string getFormatString(tf::TypeBase *t) {
     }
 }
 
+struct SymValue {
+    // value data
+    llvm::Value *symValue;
+    // value type.
+    tf::Type *symType;
+    std::vector<llvm::Value *> symArrSizes;
+
+    SymValue(llvm::Value *symValue, tf::Type *symType)
+        : symValue(symValue), symType(symType){};
+    SymValue(llvm::Value *symValue, tf::Type *symType,
+             std::vector<llvm::Value *> symArrSizes)
+        : symValue(symValue), symType(symType), symArrSizes(symArrSizes){};
+};
+
+using SymTable = Scope<string, SymValue>;
+
 struct Codegen {
     LLVMContext ctx;
     // map from variables to functions
@@ -195,8 +211,11 @@ struct Codegen {
         Builder builder(ctx);
 
         // scoped mapping from variables to values
-        Scope<string, Value> scope;
-        scope.insert("printInt64", getOrInsertPrintInt64(mod, builder));
+        SymTable scope;
+        scope.insert(
+            "printInt64",
+            new SymValue(getOrInsertPrintInt64(mod, builder),
+                         /* TODO: add function types into IR */ nullptr));
 
         for (auto it : p.fndefns) {
             this->codegenFunction(scope, it, builder);
@@ -234,10 +253,9 @@ struct Codegen {
                                  /*isVarArg=*/false);
     };
 
-    llvm::Value *codegenLVal(Scope<string, Value> &scope, LVal *lval,
-                             Builder builder) {
+    llvm::Value *codegenLVal(SymTable &scope, LVal *lval, Builder builder) {
         if (LValIdent *id = dynamic_cast<LValIdent *>(lval)) {
-            Value *V = scope.find(id->s);
+            Value *V = scope.find(id->s)->symValue;
             return builder.CreateLoad(V);
         }
 
@@ -249,17 +267,17 @@ struct Codegen {
             for (auto it : arr->indeces) {
                 Value *Arg = codegenExpr(scope, it, builder);
                 if (Arg->getType()->isIntegerTy()) {
-                    Value *fn = scope.find("printInt64");
+                    Value *fn = scope.find("printInt64")->symValue;
                     Arg = builder.CreateSExtOrTrunc(Arg, builder.getInt64Ty());
                     errs() << "fn: " << *fn << " | arg: " << *Arg << "\n";
                     Value *V = builder.CreateCall(fn, {Arg});
-                    errs() << "fncall : "<< *V << "\n";
+                    errs() << "fncall : " << *V << "\n";
                 }
             }
             return nullptr;
         }
 
-        Value *LV = scope.find(arr->s);
+        Value *LV = scope.find(arr->s)->symValue;
         assert(LV != nullptr);
         llvm::SmallVector<llvm::Value *, 4> args;
 
@@ -272,8 +290,7 @@ struct Codegen {
         return nullptr;
     }
 
-    llvm::Value *codegenExpr(Scope<string, Value> &scope, Expr *e,
-                             Builder builder) {
+    llvm::Value *codegenExpr(SymTable &scope, Expr *e, Builder builder) {
         if (ExprInt *i = dynamic_cast<ExprInt *>(e)) {
             return builder.getInt32(i->i);
         } else if (ExprLVal *lvale = dynamic_cast<ExprLVal *>(e)) {
@@ -296,26 +313,36 @@ struct Codegen {
     }
 
     // expects the builder to be at the correct location
-    llvm::BasicBlock *codegenStmt(Scope<string, Value> &scope, Stmt *stmt,
+    llvm::BasicBlock *codegenStmt(SymTable &scope, Stmt *stmt,
                                   llvm::BasicBlock *entry, Builder builder) {
         builder.SetInsertPoint(entry);
 
         if (StmtLet *let = dynamic_cast<StmtLet *>(stmt)) {
             llvm::Type *ty = getType(let->ty);
-            if (ty->isArrayTy()) {
-                assert(0 && "unknown how to codegen arrays");
+            llvm::Value *V = builder.CreateAlloca(ty);
+            V->setName(let->name);
+            // we need to codegen a malloc
+            if (ty->isPointerTy()) {
+                tf::TypeArray *arrty = static_cast<tf::TypeArray *>(let->ty);
+
+                std::vector<Value *> Sizes;
+                for (auto it : arrty->sizes) {
+                    Sizes.push_back(codegenExpr(scope, it, builder));
+                }
+                scope.insert(let->name, new SymValue(V, let->ty, Sizes));
+
             } else {
-                llvm::Value *V = builder.CreateAlloca(ty);
-                V->setName(let->name);
-                scope.insert(let->name, V);
+                // we have a regular value
+                scope.insert(let->name, new SymValue(V, let->ty));
             }
             return entry;
 
         } else if (StmtSet *s = dynamic_cast<StmtSet *>(stmt)) {
             if (LValIdent *lid = dynamic_cast<LValIdent *>(s->lval)) {
-                Value *v = scope.find(lid->s);
-                assert(v != nullptr);
-                builder.CreateStore(codegenExpr(scope, s->rhs, builder), v);
+                SymValue *sv = scope.find(lid->s);
+                assert(sv != nullptr);
+                builder.CreateStore(codegenExpr(scope, s->rhs, builder),
+                                    sv->symValue);
             } else {
                 LValArray *larr = static_cast<LValArray *>(s->lval);
                 (void)(larr);
@@ -334,7 +361,7 @@ struct Codegen {
     }
 
     // start to codegen from the given block
-    llvm::BasicBlock *codegenBlock(Scope<string, Value> &scope, Block *block,
+    llvm::BasicBlock *codegenBlock(SymTable &scope, Block *block,
                                    llvm::BasicBlock *entry, Builder builder) {
         for (auto stmt : block->stmts) {
             entry = codegenStmt(scope, stmt, entry, builder);
@@ -342,8 +369,7 @@ struct Codegen {
         return entry;
     }
 
-    Function *codegenFunction(Scope<string, Value> &scope, FnDefn *f,
-                              Builder builder) {
+    Function *codegenFunction(SymTable &scope, FnDefn *f, Builder builder) {
         Function *F =
             Function::Create(getFunctionType(f, builder),
                              GlobalValue::ExternalLinkage, f->name, &mod);
@@ -360,5 +386,22 @@ int compile_program(tf::Program *p) {
     p->print(std::cout);
     Codegen c(*p);
     c.mod.print(errs(), nullptr);
+    // write file out to disk
+    {
+        std::error_code errcode;
+        const std::string out_filepath = "out.ll";
+        llvm::raw_fd_ostream outputFile(out_filepath, errcode,
+                                        llvm::sys::fs::F_None);
+        if (errcode) {
+            std::cerr << "Unable to open output file: " << out_filepath << "\n";
+            std::cerr << "Error: " << errcode.message() << "\n";
+            exit(1);
+        }
+
+        c.mod.print(outputFile, nullptr);
+        outputFile.flush();
+    }
+    exit(0);
+
     return 0;
 }
