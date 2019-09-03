@@ -79,6 +79,7 @@ std::vector<tf::FnDefn *> g_fndefns;
 %token INT;
 %token FLOAT;
 %token BOOL;
+%token VOID;
 
 %start toplevel
 %type <program> program
@@ -170,6 +171,8 @@ basetype: INT {
         }
     | FLOAT {
         $$ = new tf::TypeBase(tf::TypeBaseName::Float);
+    } | VOID {
+        $$ = new tf::TypeBase(tf::TypeBaseName::Void);
     }
 
 stmt : lval EQUALS expr SEMICOLON {
@@ -210,8 +213,8 @@ fnparamsNonEmpty:
    $$->push_back({*$3, $5});
  }
 
-fndefn: DEF IDENTIFIER fnparams block {
-      $$ = new tf::FnDefn(*$2, *$3, $4);
+fndefn: DEF IDENTIFIER fnparams COLON type block {
+      $$ = new tf::FnDefn(*$IDENTIFIER, *$fnparams, $type, $block);
   }
 %%
 

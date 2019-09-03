@@ -167,21 +167,8 @@ class Scope {
 Value *getOrInsertPrintInt64(llvm::Module &mod, Builder builder) {
     FunctionType *fty =
         FunctionType::get(builder.getVoidTy(), builder.getInt64Ty());
-    errs() << "fty: " << *fty << "\n";
     Constant *c = mod.getOrInsertFunction("printint64", fty, {});
-    errs() << "c: " << *c << "\n";
     return c;
-}
-// get the format string for a given type
-std::string getFormatString(tf::TypeBase *t) {
-    switch (t->t) {
-        case tf::TypeBaseName::Int:
-            return "%d";
-        case tf::TypeBaseName::Float:
-            return "%f";
-        case TypeBaseName::Bool:
-            return "%d";
-    }
 }
 
 struct SymValue {
@@ -230,6 +217,8 @@ struct Codegen {
                 return llvm::Type::getFloatTy(ctx);
             case TypeBaseName::Bool:
                 return llvm::Type::getInt1Ty(ctx);
+            case TypeBaseName::Void:
+                return llvm::Type::getVoidTy(ctx);
         }
     }
 
@@ -263,15 +252,13 @@ struct Codegen {
         assert(arr);
 
         if (arr->s == "print") {
-            errs() << "PRINTING..\n";
             for (auto it : arr->indeces) {
                 Value *Arg = codegenExpr(scope, it, builder);
                 if (Arg->getType()->isIntegerTy()) {
                     Value *fn = scope.find("printInt64")->symValue;
                     Arg = builder.CreateSExtOrTrunc(Arg, builder.getInt64Ty());
-                    errs() << "fn: " << *fn << " | arg: " << *Arg << "\n";
                     Value *V = builder.CreateCall(fn, {Arg});
-                    errs() << "fncall : " << *V << "\n";
+                    return V;
                 }
             }
             return nullptr;
@@ -377,30 +364,77 @@ struct Codegen {
         builder.SetInsertPoint(entry);
         // TODO: add formal paramters into fnscope.
         // TODO: have a toplevel scope.
-        codegenBlock(scope, f->b, entry, builder);
+        BasicBlock *exitbb = codegenBlock(scope, f->b, entry, builder);
+
+        // codegen "ret void" for a void function
+        if (TypeBase *bt = dynamic_cast<TypeBase *>(f->retty)) {
+            if (bt->t == TypeBaseName::Void) {
+                builder.SetInsertPoint(exitbb);
+                builder.CreateRetVoid();
+            }
+        }
+
         return F;
     }
 };
 
-int compile_program(tf::Program *p) {
-    p->print(std::cout);
+void writeModuleLLToFile(llvm::Module &m, const char *filepath) {
+    std::error_code errcode;
+    const std::string out_filepath = "out.ll";
+    llvm::raw_fd_ostream outputFile(out_filepath, errcode,
+                                    llvm::sys::fs::F_None);
+    if (errcode) {
+        std::cerr << "Unable to open output file: " << out_filepath << "\n";
+        std::cerr << "Error: " << errcode.message() << "\n";
+        exit(1);
+    }
+}
+
+void debugVerifyModule(llvm::Module &m) {
+    if (verifyModule(m, nullptr) == 1) {
+        cerr << "vvvvvvv\n";
+        errs() << m << "\n";
+        cerr << "^^^Broken module found, aborting compilation. Error:vvv\n";
+        verifyModule(m, &errs());
+        exit(1);
+    }
+}
+
+int compile_program(int argc, char **argv, tf::Program *p) {
+    p->print(std::cerr);
     Codegen c(*p);
-    c.mod.print(errs(), nullptr);
-    // write file out to disk
+
+    debugVerifyModule(c.mod);
+    if (argc >= 3) {
+        writeModuleLLToFile(c.mod, argv[2]);
+    } else {
+        std::cerr << "No output filepath provided. writing module to stdout...\n";
+        outs() << c.mod;
+    }
+
+    // Setup for codegen
+    /*
     {
-        std::error_code errcode;
-        const std::string out_filepath = "out.ll";
-        llvm::raw_fd_ostream outputFile(out_filepath, errcode,
-                                        llvm::sys::fs::F_None);
-        if (errcode) {
-            std::cerr << "Unable to open output file: " << out_filepath << "\n";
-            std::cerr << "Error: " << errcode.message() << "\n";
-            exit(1);
+        // WTF? it says OOM
+        InitializeNativeTarget();
+        const std::string CPU = "generic";
+        auto TargetTriple = sys::getDefaultTargetTriple();
+        std::string Error;
+        auto Target = TargetRegistry::lookupTarget(TargetTriple, Error);
+        if (!Target) {
+            errs() << Error;
+            report_fatal_error("unable to lookup target");
         }
 
-        c.mod.print(outputFile, nullptr);
-        outputFile.flush();
+        const TargetOptions opt;
+        auto RM = Optional<Reloc::Model>();
+        const std::string Features = "";
+        llvm::TargetMachine *TM =
+            Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
+        c.mod.setDataLayout(TM->createDataLayout());
     }
+    */
+
     exit(0);
 
     return 0;

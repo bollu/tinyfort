@@ -28,7 +28,7 @@ extern tf::Program *g_program;
 int g_lexer_line_num = 1;
 int g_lexer_success = 1;
 
-int compile_program(tf::Program *p);
+int compile_program(int argc, char **argv, tf::Program *p);
 %}
 
 
@@ -62,6 +62,7 @@ int compile_program(tf::Program *p);
 "int"          return INT;
 "float"          return FLOAT;
 "bool"          return BOOL;
+"void"          return VOID;
 
 [ \t]          ;
 
@@ -99,7 +100,7 @@ int main(int argc, char **argv) {
         yyparse();
     } while (!feof(yyin));
     if (g_lexer_success) {
-        return compile_program(g_program);
+        return compile_program(argc, argv, g_program);
     } else {
         return 1;
     }

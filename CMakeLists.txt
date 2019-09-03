@@ -63,6 +63,8 @@ add_executable(tinyfort
     src/main.cpp
     )
 
+add_library(fort src/libfort.c)
+
 target_link_libraries(tinyfort ${LLVM_LIBS}  -lstdc++ ${Z3_LIBS})
 set_target_properties(tinyfort PROPERTIES CXX_STANDARD 14)
 

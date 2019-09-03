@@ -1,9 +1,9 @@
 #pragma once
+#include <assert.h>
 #include <iostream>
 #include <set>
 #include <sstream>
 #include <vector>
-#include <assert.h>
 
 using namespace std;
 
@@ -31,37 +31,38 @@ void printBinop(std::ostream &o, tf::Binop bp);
 
 class Block;
 
-
-enum TypeBaseName {
-    Int,
-    Float,
-    Bool
-};
+enum TypeBaseName { Int, Float, Bool, Void };
 
 class Type {
-    public:
+   public:
     virtual void print(std::ostream &o, int depth = 0) = 0;
 
-
     static void printTypeBaseName(std::ostream &o, TypeBaseName t) {
-        switch(t) {
-            case Int: o << "int"; return;
-            case Float: o << "float"; return;
-            case Bool: o << "bool"; return;
+        switch (t) {
+            case Int:
+                o << "int";
+                return;
+            case Float:
+                o << "float";
+                return;
+            case Bool:
+                o << "bool";
+                return;
+            case Void:
+                o << "void";
+                return;
         }
         assert(false && "unreachable");
     }
 };
 
 class TypeBase : public Type {
-public:
+   public:
     TypeBaseName t;
 
-    TypeBase(TypeBaseName t) : t(t) {};
-    
-    void print(std::ostream &o, int depth = 0) {
-        printTypeBaseName(o, t);
-    }
+    TypeBase(TypeBaseName t) : t(t){};
+
+    void print(std::ostream &o, int depth = 0) { printTypeBaseName(o, t); }
 };
 
 class Expr {
@@ -70,17 +71,16 @@ class Expr {
 };
 
 class TypeArray : public Type {
-public:
+   public:
     TypeBaseName t;
     std::vector<Expr *> sizes;
 
-    TypeArray(TypeBaseName t, std::vector<Expr *> sizes) : t(t), sizes(sizes)
-    {}
+    TypeArray(TypeBaseName t, std::vector<Expr *> sizes) : t(t), sizes(sizes) {}
 
     void print(std::ostream &o, int depth = 0) {
         printTypeBaseName(o, t);
         o << "[";
-        for(unsigned i = 0; i < sizes.size(); ++i) {
+        for (unsigned i = 0; i < sizes.size(); ++i) {
             sizes[i]->print(o, depth);
             if (i < sizes.size() - 1) o << ", ";
         }
@@ -101,23 +101,21 @@ class LValIdent : public LVal {
     void print(std::ostream &o, int depth = 0) { o << s; }
 };
 
-
 class LValArray : public LVal {
-    public:
-        std::string s;
-        std::vector<Expr *> indeces;
-        LValArray(std::string s, std::vector<Expr *> indeces)
-            : s(s), indeces(indeces) {};
-        void print(std::ostream &o, int depth = 0) { 
-            o << s;
-            o << "[";
-            for(unsigned i = 0; i < indeces.size(); ++i) {
-                indeces[i]->print(o, depth);
-                if (i < indeces.size() - 1) o << ", ";
-            }
-            o << "]";
+   public:
+    std::string s;
+    std::vector<Expr *> indeces;
+    LValArray(std::string s, std::vector<Expr *> indeces)
+        : s(s), indeces(indeces){};
+    void print(std::ostream &o, int depth = 0) {
+        o << s;
+        o << "[";
+        for (unsigned i = 0; i < indeces.size(); ++i) {
+            indeces[i]->print(o, depth);
+            if (i < indeces.size() - 1) o << ", ";
         }
-
+        o << "]";
+    }
 };
 
 class ExprBinop : public Expr {
@@ -216,28 +214,29 @@ class StmtWhileLoop : public Stmt {
 
 class StmtExpr : public Stmt {
    public:
-       Expr *e;
+    Expr *e;
 
-       StmtExpr(Expr *e) : e (e) {};
-       void print(std::ostream &o, int depth = 0) {
-           e ->print(o, depth);
-           o << ";";
-       }
-
+    StmtExpr(Expr *e) : e(e){};
+    void print(std::ostream &o, int depth = 0) {
+        e->print(o, depth);
+        o << ";";
+    }
 };
 
 struct FnDefn {
     std::string name;
-    std::vector<pair<string, tf::Type*>> formals;
+    std::vector<pair<string, tf::Type *>> formals;
+    Type *retty;
     Block *b;
-    FnDefn(std::string name, std::vector<pair<string, Type*>> formals,
-            Block *b) : name(name), formals(formals), b(b){};
+    FnDefn(std::string name, std::vector<pair<string, Type *>> formals,
+           Type *retty, Block *b)
+        : name(name), formals(formals), retty(retty), b(b){};
 
     void print(std::ostream &o, int depth = 0) {
         align(o, depth);
         o << "def " << name << "(";
 
-        for(int i = 0; i < (int)formals.size(); ++i) {
+        for (int i = 0; i < (int)formals.size(); ++i) {
             const auto it = formals[i];
             o << it.first << ":";
             it.second->print(o);
@@ -246,7 +245,10 @@ struct FnDefn {
             }
         }
 
-        o << ") ";
+        o << ")";
+        o << " : ";
+        retty->print(o);
+        o << " ";
         b->print(o, depth);
     }
 };
