@@ -232,26 +232,25 @@ struct Codegen {
         if (const tf::TypeArray *arr = dynamic_cast<const TypeArray *>(t)) {
             llvm::Type *base = getBaseType(arr->t);
             return base->getPointerTo();
-        } 
-        else if (const tf::TypeFn *fty = dynamic_cast<const TypeFn *>(t)) {
+        } else if (const tf::TypeFn *fty = dynamic_cast<const TypeFn *>(t)) {
             llvm::SmallVector<llvm::Type *, 4> paramTypes;
             for (auto it : fty->paramsty) {
                 paramTypes.push_back(getLLVMType(it));
             }
 
             return FunctionType::get(getLLVMType(fty->retty), paramTypes,
-                    /*isVarArg=*/false);
+                                     /*isVarArg=*/false);
 
-        }
-        else {
+        } else {
             const tf::TypeBase *bt = dynamic_cast<const TypeBase *>(t);
             return getBaseType(bt->t);
         }
     }
 
-
     llvm::Value *codegenLVal(SymTable &scope, LVal *lval, Builder builder) {
-        cerr << __FUNCTION__ << " | codegening lval: "; lval->print(cerr); cerr <<  "\n";
+        cerr << __FUNCTION__ << " | codegening lval: ";
+        lval->print(cerr);
+        cerr << "\n";
         if (LValIdent *id = dynamic_cast<LValIdent *>(lval)) {
             SymValue *sv = scope.find(id->s);
             assert(sv != nullptr);
@@ -283,14 +282,12 @@ struct Codegen {
         assert(LV != nullptr);
         llvm::SmallVector<llvm::Value *, 4> args;
 
-        for(int i = 0; i < arr->indeces.size(); ++i) {
+        for (int i = 0; i < arr->indeces.size(); ++i) {
             args.push_back(codegenExpr(scope, arr->indeces[i], builder));
         }
 
-
-        if (LV->getType()->isPointerTy() && 
-                LV->getType()->getPointerElementType()->isFunctionTy()) {
-
+        if (LV->getType()->isPointerTy() &&
+            LV->getType()->getPointerElementType()->isFunctionTy()) {
             return builder.CreateCall(LV, args);
             // generate function call.
         } else {
@@ -325,7 +322,7 @@ struct Codegen {
                 case Binop::BinopCmpEq: {
                     // this for some reason infinite loops.
                     return builder.CreateICmpSLE(l, r);
-                    }
+                }
                 default:
                     cerr << "unknown binop: |" << eb->op << "|";
                     e->print(cerr);
@@ -389,7 +386,8 @@ struct Codegen {
 
             builder.SetInsertPoint(condbb);
             Value *cond = codegenExpr(scope, wh->cond, builder);
-            builder.CreateCondBr(cond, bodybb, exitbb);
+            if (!bodybb->getTerminator())
+                builder.CreateCondBr(cond, bodybb, exitbb);
 
             BasicBlock *blockbb =
                 codegenBlock(scope, wh->inner, bodybb, builder);
@@ -411,16 +409,19 @@ struct Codegen {
             builder.CreateCondBr(cond, thenbb, elsebb);
 
             thenbb = codegenBlock(scope, sif->inner, thenbb, builder);
-            builder.SetInsertPoint(thenbb);
-            builder.CreateBr(joinbb);
-
+            if (!thenbb->getTerminator()) {
+                builder.SetInsertPoint(thenbb);
+                builder.CreateBr(joinbb);
+            }
 
             // TODO: check if we have a terminator, and eliminate everything
             // after a terminator.
             if (sif->tail) {
                 elsebb = codegenStmt(scope, sif->tail, elsebb, builder);
-                builder.SetInsertPoint(elsebb);
-                builder.CreateBr(joinbb);
+                if (!elsebb->getTerminator()) {
+                    builder.SetInsertPoint(elsebb);
+                    builder.CreateBr(joinbb);
+                }
             } else {
                 builder.SetInsertPoint(elsebb);
                 builder.CreateBr(joinbb);
@@ -428,17 +429,14 @@ struct Codegen {
 
             return joinbb;
 
-        } 
-        else if (StmtTailElse *te = dynamic_cast<StmtTailElse *>(stmt)) {
+        } else if (StmtTailElse *te = dynamic_cast<StmtTailElse *>(stmt)) {
             return codegenBlock(scope, te->inner, entry, builder);
-        }
-        else if (StmtReturn *sret = dynamic_cast<StmtReturn *>(stmt)) {
-            Value *V = codegenExpr(scope, sret->e,  builder);
+        } else if (StmtReturn *sret = dynamic_cast<StmtReturn *>(stmt)) {
+            Value *V = codegenExpr(scope, sret->e, builder);
             builder.CreateRet(V);
             return entry;
 
-        }
-        else {
+        } else {
             StmtExpr *se = dynamic_cast<StmtExpr *>(stmt);
             assert(se != nullptr);
             codegenExpr(scope, se->e, builder);
@@ -469,7 +467,7 @@ struct Codegen {
         scope.insert(f->name, new SymValue(F, f->ty));
 
         auto arg = F->arg_begin();
-        for(int i = 0; i < (int)f->formals.size(); ++i) {
+        for (int i = 0; i < (int)f->formals.size(); ++i) {
             const std::string name = f->formals[i];
             tf::Type *ty = f->ty->paramsty[i];
             // create a slot of type T* to store the value of the mutable
@@ -484,7 +482,6 @@ struct Codegen {
         // TODO: add formal paramters into fnscope.
         // TODO: have a toplevel scope.
         BasicBlock *exitbb = codegenBlock(scope, f->b, entry, builder);
-
 
         // codegen "ret void" for a void function
         if (TypeBase *bt = dynamic_cast<TypeBase *>(f->ty->retty)) {

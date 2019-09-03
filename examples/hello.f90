@@ -5,6 +5,26 @@ def fib(i: int): int {
   return i * fib[i -1];
 }
 
+def foo(n: int): int {
+  x : int;
+  x = 1;
+
+  i: int;
+  i = 1;
+
+  
+  while i <= n {
+    i = i + 1;
+    x = x + i * i;
+
+    if x == 200 {
+      return x;
+    }
+  }
+
+  return 1000;
+}
+
 def main(i:int) : int {
    x : int;
    y : int[10, 20];
