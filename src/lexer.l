@@ -58,6 +58,7 @@ int compile_program(int argc, char **argv, tf::Program *p);
 "while"          return WHILE;
 "for"          return FOR;
 "if"          return IF;
+"elif"          return ELIF;
 "else"          return ELSE;
 "int"          return INT;
 "float"          return FLOAT;

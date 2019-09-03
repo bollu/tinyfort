@@ -71,6 +71,7 @@ std::vector<tf::FnDefn *> g_fndefns;
 %token CMPNEQ;
 %token GEQ;
 %token IF;
+%token ELIF;
 %token ELSE;
 %token FOR;
 %token WHILE;
@@ -82,9 +83,9 @@ std::vector<tf::FnDefn *> g_fndefns;
 %token VOID;
 
 %start toplevel
-%type <program> program
 %type <block>	block;
 %type <stmt>	stmt;
+%type <stmt>	iftail;
 %type <lval>	lval;
 %type <expr>	expr;
 %type <expr>	expr2;
@@ -94,10 +95,10 @@ std::vector<tf::FnDefn *> g_fndefns;
 %type <exprtuple> exprtuple;
 %type <stmts>	stmts;
 %type <UNDEF> topleveldefn;
+%type <UNDEF> program;
 %type <fndefn> fndefn;
 %type <fnparams> fnparams;
 %type <fnparams> fnparamsNonEmpty;
-%type <typebase> typebase;
 %type <type>	basetype;
 %type <type>	type;
 
@@ -153,56 +154,69 @@ exprtuple_:
 exprtuple: OPENSQUARE CLOSESQUARE { $$ = new std::vector<tf::Expr *>(); } 
          | OPENSQUARE exprtuple_ CLOSESQUARE { $$ = $2; }
 
-lval : IDENTIFIER {
+lval: 
+  IDENTIFIER {
     $$ = new tf::LValIdent(*$1);
- } |
- IDENTIFIER exprtuple {
-   $$ = new tf::LValArray(*$1, *$2);
- }
+  } | IDENTIFIER exprtuple {
+    $$ = new tf::LValArray(*$1, *$2);
+  }
 
-type : basetype {
-     $$ = $1;
- } | basetype exprtuple {
+type:
+    basetype { $$ = $1; } 
+    | basetype exprtuple {
      $$ = new tf::TypeArray(((tf::TypeBase*)$1)->t, *$2);
- }
+    }
 
-basetype: INT {
+basetype: 
+    INT {
         $$ = new tf::TypeBase(tf::TypeBaseName::Int);
-        }
-    | FLOAT {
+    } | FLOAT {
         $$ = new tf::TypeBase(tf::TypeBaseName::Float);
     } | VOID {
         $$ = new tf::TypeBase(tf::TypeBaseName::Void);
     }
 
-stmt : lval EQUALS expr SEMICOLON {
+stmt: 
+    lval EQUALS expr SEMICOLON {
          $$ = new tf::StmtSet($1, $3);
-     }
-    | WHILE expr block {
+    } | WHILE expr block {
          $$ = new tf::StmtWhileLoop($2, $3);
-     }
-    | IDENTIFIER COLON type SEMICOLON {
+    } | IDENTIFIER COLON type SEMICOLON {
        $$ = new tf::StmtLet(*$1, $3);
-    }
-    | expr SEMICOLON {
+    } | expr SEMICOLON {
          $$ = new tf::StmtExpr($1);
+    } | IF expr block iftail {
+        $$ = new tf::StmtIf($expr, $block, $iftail);
     }
 
-stmts: stmts stmt {
+iftail: 
+      ELIF expr block iftail { 
+        $$ = new tf::StmtIf($expr, $block, $4);
+      } | ELSE block {
+        $$ = new tf::StmtTailElse($block);
+      }
+      | %empty {
+        $$ = nullptr;
+      }
+
+
+
+stmts: 
+     stmts stmt {
          $$ = $1;
          $$->push_back($2);
-     }
-     | stmt {
+     } | stmt {
        $$ = new std::vector<tf::Stmt*>();
        $$->push_back($1);
      }
      
 
-fnparams: OPENPAREN CLOSEPAREN {
+fnparams: 
+    OPENPAREN CLOSEPAREN {
         $$ = new vector<pair<string, tf::Type*>>();
-} | OPENPAREN fnparamsNonEmpty CLOSEPAREN {
-  $$ = $2;
-}
+    } | OPENPAREN fnparamsNonEmpty CLOSEPAREN {
+      $$ = $2;
+    }
 
 fnparamsNonEmpty: 
  IDENTIFIER COLON type { 

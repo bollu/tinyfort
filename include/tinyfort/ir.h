@@ -156,6 +156,7 @@ class Stmt {
     virtual void print(std::ostream &o, int depth = 0) = 0;
 };
 
+
 struct Block {
     std::vector<Stmt *> stmts;
     Block(std::vector<Stmt *> stmts) : stmts(stmts){};
@@ -222,6 +223,37 @@ class StmtExpr : public Stmt {
         o << ";";
     }
 };
+
+
+class StmtIf : public Stmt {
+    public:
+        Expr *cond;
+        Block *inner;
+        Stmt *tail;
+        StmtIf(Expr *cond, Block *inner, Stmt *tail) : cond(cond),
+        inner(inner), tail(tail) {};
+
+    void print(std::ostream &o, int depth = 0) {
+        o << "if ";
+        cond->print(o, depth);
+        inner->print(o,depth);
+        if (tail) {
+            o << "else";
+            tail->print(o, depth);
+        }
+    }
+
+};
+
+class StmtTailElse : public Stmt {
+    public:
+        Block *inner;
+        StmtTailElse(Block *inner) : inner(inner) {};
+        void print(std::ostream &o, int depth = 0) {
+            inner->print(o, depth);
+        }
+};
+
 
 struct FnDefn {
     std::string name;

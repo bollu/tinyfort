@@ -354,13 +354,42 @@ struct Codegen {
             Value *cond = codegenExpr(scope, wh->cond, builder);
             builder.CreateCondBr(cond, bodybb, exitbb);
 
-            BasicBlock *blockbb = codegenBlock(scope, wh->inner, bodybb, builder);
+            BasicBlock *blockbb =
+                codegenBlock(scope, wh->inner, bodybb, builder);
             builder.SetInsertPoint(blockbb);
             builder.CreateBr(condbb);
 
             return exitbb;
 
-        } else {
+        } else if (StmtIf *sif = dynamic_cast<StmtIf *>(stmt)) {
+            BasicBlock *thenbb =
+                llvm::BasicBlock::Create(ctx, "if.then", entry->getParent());
+            BasicBlock *elsebb =
+                llvm::BasicBlock::Create(ctx, "if.else", entry->getParent());
+            BasicBlock *joinbb =
+                llvm::BasicBlock::Create(ctx, "if.join", entry->getParent());
+
+            builder.SetInsertPoint(entry);
+            Value *cond = codegenExpr(scope, sif->cond, builder);
+            builder.CreateCondBr(cond, thenbb, elsebb);
+
+            thenbb = codegenBlock(scope, sif->inner, thenbb, builder);
+            builder.SetInsertPoint(thenbb);
+            builder.CreateBr(joinbb);
+
+            if (sif->tail) {
+                elsebb = codegenStmt(scope, sif->tail, elsebb, builder);
+                builder.SetInsertPoint(elsebb);
+                builder.CreateBr(joinbb);
+            }
+
+            return joinbb;
+
+        } 
+        else if (StmtTailElse *te = dynamic_cast<StmtTailElse *>(stmt)) {
+            return codegenBlock(scope, te->inner, entry, builder);
+        }
+        else {
             StmtExpr *se = dynamic_cast<StmtExpr *>(stmt);
             assert(se != nullptr);
             codegenExpr(scope, se->e, builder);
@@ -368,7 +397,6 @@ struct Codegen {
         }
 
         assert(false && "should never reach here.");
-
     }
 
     // start to codegen from the given block
