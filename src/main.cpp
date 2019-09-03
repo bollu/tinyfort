@@ -291,6 +291,8 @@ struct Codegen {
                     return builder.CreateAdd(l, r);
                 case Binop::BinopSub:
                     return builder.CreateSub(l, r);
+                case Binop::BinopLeq:
+                    return builder.CreateICmpSLE(l, r);
             }
         }
 
@@ -338,13 +340,35 @@ struct Codegen {
             return entry;
 
         } else if (StmtWhileLoop *wh = dynamic_cast<StmtWhileLoop *>(stmt)) {
+            BasicBlock *condbb =
+                llvm::BasicBlock::Create(ctx, "while.cond", entry->getParent());
+            BasicBlock *bodybb =
+                llvm::BasicBlock::Create(ctx, "while.body", entry->getParent());
+            BasicBlock *exitbb =
+                llvm::BasicBlock::Create(ctx, "while.exit", entry->getParent());
+
+            builder.SetInsertPoint(entry);
+            builder.CreateBr(condbb);
+
+            builder.SetInsertPoint(condbb);
+            Value *cond = codegenExpr(scope, wh->cond, builder);
+            builder.CreateCondBr(cond, bodybb, exitbb);
+
+            BasicBlock *blockbb = codegenBlock(scope, wh->inner, bodybb, builder);
+            builder.SetInsertPoint(blockbb);
+            builder.CreateBr(condbb);
+
+            return exitbb;
+
         } else {
             StmtExpr *se = dynamic_cast<StmtExpr *>(stmt);
             assert(se != nullptr);
             codegenExpr(scope, se->e, builder);
+            return entry;
         }
 
-        return entry;
+        assert(false && "should never reach here.");
+
     }
 
     // start to codegen from the given block
@@ -408,7 +432,8 @@ int compile_program(int argc, char **argv, tf::Program *p) {
     if (argc >= 3) {
         writeModuleLLToFile(c.mod, argv[2]);
     } else {
-        std::cerr << "No output filepath provided. writing module to stdout...\n";
+        std::cerr
+            << "No output filepath provided. writing module to stdout...\n";
         outs() << c.mod;
     }
 
