@@ -10,8 +10,6 @@
 #include "tinyfort/ir.h"
 #include <cstdio>
 
-static const char *VERSION_STRING = "0.1.0";
-
 // Keep this at the end so it can see all the includes made here.
 #include "parser.generated.hpp"
 

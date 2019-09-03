@@ -5,7 +5,7 @@ def fib(i: int): int {
   return i * fib[i -1];
 }
 
-def main(i:int) : void {
+def main(i:int) : int {
    x : int;
    y : int[10, 20];
    x = 1;
@@ -22,6 +22,8 @@ def main(i:int) : void {
    } else {
      print[9];
    }
+
+   return 0;
 
 }
 

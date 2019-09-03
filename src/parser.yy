@@ -232,7 +232,15 @@ fnparamsNonEmpty:
  }
 
 fndefn: DEF IDENTIFIER fnparams COLON type block {
-      $$ = new tf::FnDefn(*$IDENTIFIER, *$fnparams, $type, $block);
+      std::vector<tf::Type *>paramtys;
+      std::vector<std::string> formals;
+
+      for(int i = 0; i < (int)$fnparams->size(); ++i) {
+          paramtys.push_back((*$fnparams)[i].second);
+          formals.push_back((*$fnparams)[i].first);
+      }
+      tf::TypeFn *tyfn = new tf::TypeFn($type, paramtys);
+      $$ = new tf::FnDefn(*$IDENTIFIER, formals, tyfn, $block);
   }
 %%
 

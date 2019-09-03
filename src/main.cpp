@@ -232,21 +232,23 @@ struct Codegen {
         if (const tf::TypeArray *arr = dynamic_cast<const TypeArray *>(t)) {
             llvm::Type *base = getBaseType(arr->t);
             return base->getPointerTo();
-        } else {
+        } 
+        else if (const tf::TypeFn *fty = dynamic_cast<const TypeFn *>(t)) {
+            llvm::SmallVector<llvm::Type *, 4> paramTypes;
+            for (auto it : fty->paramsty) {
+                paramTypes.push_back(getLLVMType(it));
+            }
+
+            return FunctionType::get(getLLVMType(fty->retty), paramTypes,
+                    /*isVarArg=*/false);
+
+        }
+        else {
             const tf::TypeBase *bt = dynamic_cast<const TypeBase *>(t);
             return getBaseType(bt->t);
         }
     }
 
-    FunctionType *getFunctionType(const FnDefn *f, Builder builder) {
-        llvm::SmallVector<llvm::Type *, 4> paramTypes;
-        for (auto it : f->formals) {
-            paramTypes.push_back(getLLVMType(it.second));
-        }
-
-        return FunctionType::get(builder.getVoidTy(), paramTypes,
-                                 /*isVarArg=*/false);
-    };
 
     llvm::Value *codegenLVal(SymTable &scope, LVal *lval, Builder builder) {
         cerr << __FUNCTION__ << " | codegening lval: "; lval->print(cerr); cerr <<  "\n";
@@ -260,7 +262,7 @@ struct Codegen {
         }
 
         const LValArray *arr = dynamic_cast<LValArray *>(lval);
-        assert(arr);
+        assert(arr != nullptr);
 
         if (arr->s == "print") {
             for (auto it : arr->indeces) {
@@ -275,11 +277,21 @@ struct Codegen {
             return nullptr;
         }
 
-        Value *LV = scope.find(arr->s)->symValue;
+        SymValue *sv = scope.find(arr->s);
+        assert(sv != nullptr);
+        Value *LV = sv->symValue;
         assert(LV != nullptr);
         llvm::SmallVector<llvm::Value *, 4> args;
 
-        if (LV->getType()->isFunctionTy()) {
+        for(int i = 0; i < arr->indeces.size(); ++i) {
+            args.push_back(codegenExpr(scope, arr->indeces[i], builder));
+        }
+
+
+        if (LV->getType()->isPointerTy() && 
+                LV->getType()->getPointerElementType()->isFunctionTy()) {
+
+            return builder.CreateCall(LV, args);
             // generate function call.
         } else {
             // generate array index
@@ -306,6 +318,8 @@ struct Codegen {
                     return builder.CreateAdd(l, r);
                 case Binop::BinopSub:
                     return builder.CreateSub(l, r);
+                case Binop::BinopMul:
+                    return builder.CreateMul(l, r);
                 case Binop::BinopLeq:
                     return builder.CreateICmpSLE(l, r);
                 case Binop::BinopCmpEq: {
@@ -400,8 +414,14 @@ struct Codegen {
             builder.SetInsertPoint(thenbb);
             builder.CreateBr(joinbb);
 
+
+            // TODO: check if we have a terminator, and eliminate everything
+            // after a terminator.
             if (sif->tail) {
                 elsebb = codegenStmt(scope, sif->tail, elsebb, builder);
+                builder.SetInsertPoint(elsebb);
+                builder.CreateBr(joinbb);
+            } else {
                 builder.SetInsertPoint(elsebb);
                 builder.CreateBr(joinbb);
             }
@@ -439,17 +459,19 @@ struct Codegen {
 
     Function *codegenFunction(SymTable &scope, FnDefn *f, Builder builder) {
         Function *F =
-            Function::Create(getFunctionType(f, builder),
+            Function::Create(cast<llvm::FunctionType>(getLLVMType(f->ty)),
                              GlobalValue::ExternalLinkage, f->name, &mod);
         llvm::BasicBlock *entry = llvm::BasicBlock::Create(ctx, "entry", F);
         builder.SetInsertPoint(entry);
 
         scope.pushScope();
+
+        scope.insert(f->name, new SymValue(F, f->ty));
+
         auto arg = F->arg_begin();
-        for(int i = 0; i < f->formals.size(); ++i) {
-            std::string name;
-            tf::Type *ty;
-            std::tie(name, ty) = f->formals[i];
+        for(int i = 0; i < (int)f->formals.size(); ++i) {
+            const std::string name = f->formals[i];
+            tf::Type *ty = f->ty->paramsty[i];
             // create a slot of type T* to store the value of the mutable
             // parameter.
             Value *slot = builder.CreateAlloca(getLLVMType(ty));
@@ -465,7 +487,7 @@ struct Codegen {
 
 
         // codegen "ret void" for a void function
-        if (TypeBase *bt = dynamic_cast<TypeBase *>(f->retty)) {
+        if (TypeBase *bt = dynamic_cast<TypeBase *>(f->ty->retty)) {
             if (bt->t == TypeBaseName::Void) {
                 builder.SetInsertPoint(exitbb);
                 builder.CreateRetVoid();

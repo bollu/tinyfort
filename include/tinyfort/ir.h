@@ -65,6 +65,26 @@ class TypeBase : public Type {
     void print(std::ostream &o, int depth = 0) { printTypeBaseName(o, t); }
 };
 
+class TypeFn : public Type {
+    public:
+        Type *retty;
+        std::vector<Type *>paramsty;
+
+        TypeFn(Type *retty, std::vector<Type *>paramsty) : 
+            retty(retty), paramsty(paramsty) { }
+
+
+        void print(std::ostream &o, int depth = 0) { 
+            o << "(";
+            for(int i = 0; i < (int)paramsty.size(); ++ i) {
+                paramsty[i]->print(o, depth);
+                if (i < (int)paramsty.size() - 1) o << ", ";
+            }
+            o << ") -> ";
+            retty->print(o, depth);
+        }
+};
+
 class Expr {
    public:
     virtual void print(std::ostream &o, int depth = 0) = 0;
@@ -268,21 +288,24 @@ class StmtReturn : public Stmt {
 
 struct FnDefn {
     std::string name;
-    std::vector<pair<string, tf::Type *>> formals;
-    Type *retty;
+    std::vector<string> formals;
+    TypeFn *ty;
     Block *b;
-    FnDefn(std::string name, std::vector<pair<string, Type *>> formals,
-           Type *retty, Block *b)
-        : name(name), formals(formals), retty(retty), b(b){};
+    FnDefn(std::string name, std::vector<string> formals,
+           TypeFn *ty, Block *b)
+        : name(name), formals(formals), ty(ty), b(b){
+
+            assert(formals.size() == ty->paramsty.size());
+
+        };
 
     void print(std::ostream &o, int depth = 0) {
         align(o, depth);
         o << "def " << name << "(";
 
         for (int i = 0; i < (int)formals.size(); ++i) {
-            const auto it = formals[i];
-            o << it.first << ":";
-            it.second->print(o);
+            o << formals[i] << ":";
+            ty->paramsty[i]->print(o);
             if (i < (int)formals.size() - 1) {
                 o << ", ";
             }
@@ -290,7 +313,7 @@ struct FnDefn {
 
         o << ")";
         o << " : ";
-        retty->print(o);
+        ty->retty->print(o);
         o << " ";
         b->print(o, depth);
     }
