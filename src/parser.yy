@@ -81,6 +81,7 @@ std::vector<tf::FnDefn *> g_fndefns;
 %token FLOAT;
 %token BOOL;
 %token VOID;
+%token RETURN;
 
 %start toplevel
 %type <block>	block;
@@ -123,6 +124,7 @@ block: OPENFLOWER CLOSEFLOWER { $$ = new tf::Block({}); }
 
 expr: 
      expr2 LEQ expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopLeq, $3); }
+     | expr2 CMPEQ expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopCmpEq, $3); }
      | expr2  { $$ = $1; }
 
 // relational
@@ -187,6 +189,8 @@ stmt:
          $$ = new tf::StmtExpr($1);
     } | IF expr block iftail {
         $$ = new tf::StmtIf($expr, $block, $iftail);
+    } | RETURN expr SEMICOLON {
+        $$ = new tf::StmtReturn($expr);
     }
 
 iftail: 

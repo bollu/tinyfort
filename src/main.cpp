@@ -70,6 +70,12 @@ void tf::printBinop(std::ostream &o, tf::Binop bp) {
         case tf::BinopGeq:
             o << ">=";
             return;
+        case tf::BinopCmpEq:
+            o << "==";
+            return;
+        case tf::BinopCmpNeq:
+            o << "!=";
+            return;
         default:
             assert(false && "unreachable");
     }
@@ -222,7 +228,7 @@ struct Codegen {
         }
     }
 
-    llvm::Type *getType(const tf::Type *t) {
+    llvm::Type *getLLVMType(const tf::Type *t) {
         if (const tf::TypeArray *arr = dynamic_cast<const TypeArray *>(t)) {
             llvm::Type *base = getBaseType(arr->t);
             return base->getPointerTo();
@@ -235,7 +241,7 @@ struct Codegen {
     FunctionType *getFunctionType(const FnDefn *f, Builder builder) {
         llvm::SmallVector<llvm::Type *, 4> paramTypes;
         for (auto it : f->formals) {
-            paramTypes.push_back(getType(it.second));
+            paramTypes.push_back(getLLVMType(it.second));
         }
 
         return FunctionType::get(builder.getVoidTy(), paramTypes,
@@ -243,8 +249,13 @@ struct Codegen {
     };
 
     llvm::Value *codegenLVal(SymTable &scope, LVal *lval, Builder builder) {
+        cerr << __FUNCTION__ << " | codegening lval: "; lval->print(cerr); cerr <<  "\n";
         if (LValIdent *id = dynamic_cast<LValIdent *>(lval)) {
-            Value *V = scope.find(id->s)->symValue;
+            SymValue *sv = scope.find(id->s);
+            assert(sv != nullptr);
+            Value *V = sv->symValue;
+            assert(V != nullptr);
+            errs() << __FUNCTION__ << " v: " << *V << "\n";
             return builder.CreateLoad(V);
         }
 
@@ -274,6 +285,10 @@ struct Codegen {
             // generate array index
             assert(LV->getType()->isArrayTy());
         }
+
+        cerr << "unknown LVal: ";
+        lval->print(cerr);
+        assert(false && "unknown LVal");
         return nullptr;
     }
 
@@ -293,6 +308,14 @@ struct Codegen {
                     return builder.CreateSub(l, r);
                 case Binop::BinopLeq:
                     return builder.CreateICmpSLE(l, r);
+                case Binop::BinopCmpEq: {
+                    // this for some reason infinite loops.
+                    return builder.CreateICmpSLE(l, r);
+                    }
+                default:
+                    cerr << "unknown binop: |" << eb->op << "|";
+                    e->print(cerr);
+                    assert(false && "uknown binop");
             }
         }
 
@@ -307,7 +330,7 @@ struct Codegen {
         builder.SetInsertPoint(entry);
 
         if (StmtLet *let = dynamic_cast<StmtLet *>(stmt)) {
-            llvm::Type *ty = getType(let->ty);
+            llvm::Type *ty = getLLVMType(let->ty);
             llvm::Value *V = builder.CreateAlloca(ty);
             V->setName(let->name);
             // we need to codegen a malloc
@@ -389,6 +412,12 @@ struct Codegen {
         else if (StmtTailElse *te = dynamic_cast<StmtTailElse *>(stmt)) {
             return codegenBlock(scope, te->inner, entry, builder);
         }
+        else if (StmtReturn *sret = dynamic_cast<StmtReturn *>(stmt)) {
+            Value *V = codegenExpr(scope, sret->e,  builder);
+            builder.CreateRet(V);
+            return entry;
+
+        }
         else {
             StmtExpr *se = dynamic_cast<StmtExpr *>(stmt);
             assert(se != nullptr);
@@ -414,9 +443,26 @@ struct Codegen {
                              GlobalValue::ExternalLinkage, f->name, &mod);
         llvm::BasicBlock *entry = llvm::BasicBlock::Create(ctx, "entry", F);
         builder.SetInsertPoint(entry);
+
+        scope.pushScope();
+        auto arg = F->arg_begin();
+        for(int i = 0; i < f->formals.size(); ++i) {
+            std::string name;
+            tf::Type *ty;
+            std::tie(name, ty) = f->formals[i];
+            // create a slot of type T* to store the value of the mutable
+            // parameter.
+            Value *slot = builder.CreateAlloca(getLLVMType(ty));
+            builder.CreateStore(arg, slot);
+
+            scope.insert(name, new SymValue(slot, ty));
+            arg++;
+        }
+
         // TODO: add formal paramters into fnscope.
         // TODO: have a toplevel scope.
         BasicBlock *exitbb = codegenBlock(scope, f->b, entry, builder);
+
 
         // codegen "ret void" for a void function
         if (TypeBase *bt = dynamic_cast<TypeBase *>(f->retty)) {

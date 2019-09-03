@@ -24,8 +24,8 @@ enum Binop {
     BinopLeq,
     BinopGt,
     BinopGeq,
-    BinopEq,
-    BinopNeq
+    BinopCmpEq,
+    BinopCmpNeq
 };
 void printBinop(std::ostream &o, tf::Binop bp);
 
@@ -253,6 +253,17 @@ class StmtTailElse : public Stmt {
             inner->print(o, depth);
         }
 };
+
+class StmtReturn : public Stmt {
+    public:
+        Expr *e;
+        StmtReturn(Expr *e) : e(e) {};
+        void print(std::ostream &o, int depth = 0) {
+            o << "return ";
+            e->print(o, depth);
+        }
+};
+
 
 
 struct FnDefn {

@@ -64,6 +64,7 @@ int compile_program(int argc, char **argv, tf::Program *p);
 "float"          return FLOAT;
 "bool"          return BOOL;
 "void"          return VOID;
+"return"          return RETURN;
 
 [ \t]          ;
 
