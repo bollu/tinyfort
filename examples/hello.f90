@@ -12,6 +12,7 @@ def foo(n: int): int {
   i: int;
   i = 1;
 
+
   
   while i <= n {
     i = i + 1;
@@ -31,6 +32,7 @@ def main(i:int) : int {
    b : int;
    y : int[10];
    z: int[3, 4];
+   s: int;
    x = 1;
    print[x+1];
 

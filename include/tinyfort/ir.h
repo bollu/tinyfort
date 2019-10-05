@@ -31,7 +31,7 @@ void printBinop(std::ostream &o, tf::Binop bp);
 
 class Block;
 
-enum TypeBaseName { Int, Float, Bool, Void };
+enum TypeBaseName { Int, Float, Bool, File, Void };
 
 class Type {
    public:
@@ -50,6 +50,9 @@ class Type {
                 return;
             case Void:
                 o << "void";
+                return;
+            case File:
+                o << "FILE"; 
                 return;
         }
         assert(false && "unreachable");
@@ -162,6 +165,13 @@ class ExprInt : public Expr {
     int i;
     ExprInt(int i) : i(i){};
     void print(std::ostream &o, int depth = 0) { o << i; }
+};
+
+class ExprString : public Expr {
+   public:
+    std::string s;
+    ExprString(std::string s) : s(s) {};
+    void print(std::ostream &o, int depth = 0) { o << s; }
 };
 
 class ExprLVal : public Expr {

@@ -36,7 +36,7 @@ std::vector<tf::FnDefn *> g_fndefns;
   tf::Stmt *stmt;
   tf::Expr *expr;
   tf::LVal *lval;
-  std::string *s;
+  std::string *str;
   tf::FnDefn *fndefn;
   tf::Type *type;
   int i;
@@ -82,6 +82,7 @@ std::vector<tf::FnDefn *> g_fndefns;
 %token BOOL;
 %token VOID;
 %token RETURN;
+%token FILETY;
 
 %start toplevel
 %type <block>	block;
@@ -104,7 +105,8 @@ std::vector<tf::FnDefn *> g_fndefns;
 %type <type>	type;
 
 %token <i>	INTEGER;
-%token <s>	IDENTIFIER;
+%token <str>	IDENTIFIER;
+%token <str>  STRING;
 %%
 toplevel:
         program {
@@ -146,6 +148,7 @@ expr3:
 expr4: 
      OPENPAREN expr CLOSEPAREN { $$ = $2; }
      |  INTEGER { $$ = new tf::ExprInt($1); } 
+     | STRING { $$ = new tf::ExprString(*$1); }
      | lval { $$ = new tf::ExprLVal($1); }
 
 exprtuple_: 
@@ -176,6 +179,8 @@ basetype:
         $$ = new tf::TypeBase(tf::TypeBaseName::Float);
     } | VOID {
         $$ = new tf::TypeBase(tf::TypeBaseName::Void);
+    } | FILETY {
+        $$ = new tf::TypeBase(tf::TypeBaseName::File);
     }
 
 stmt: 

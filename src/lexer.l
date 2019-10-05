@@ -31,6 +31,7 @@ int compile_program(int argc, char **argv, tf::Program *p);
 
 
 %%
+["].*?["] { yylval.str = new std::string(yytext); return STRING; }
 "("            return OPENPAREN; 
 ")"            return CLOSEPAREN;
 "["            return OPENSQUARE; 
@@ -59,6 +60,7 @@ int compile_program(int argc, char **argv, tf::Program *p);
 "elif"          return ELIF;
 "else"          return ELSE;
 "int"          return INT;
+"FILE"          return FILETY;
 "float"          return FLOAT;
 "bool"          return BOOL;
 "void"          return VOID;
@@ -71,11 +73,11 @@ int compile_program(int argc, char **argv, tf::Program *p);
                      yylval.i = atoi(yytext);
                      return INTEGER;
                  }
+
 [A-Za-z][a-zA-Z0-9_]*     {
-                    yylval.s = new std::string(yytext);
+                    yylval.str = new std::string(yytext);
                     return IDENTIFIER;
                  }
-
 
 #.*            { /* DO NOTHING */ }
 \n             { ++g_lexer_line_num; }
