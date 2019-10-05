@@ -27,7 +27,10 @@ def foo(n: int): int {
 
 def main(i:int) : int {
    x : int;
+   a : int;
+   b : int;
    y : int[10];
+   z: int[3, 4];
    x = 1;
    print[x+1];
 
@@ -54,7 +57,26 @@ def main(i:int) : int {
        print[y[x]]; x = x + 1;
    }
 
+   a = 0; 
+   while a <= 2 {
+     b = 0;
+     while b <= 3 {
+       z[a, b] = a+b;
+       b = b + 1;
+     }
+     a = a + 1;
+   }
 
+   a = 0;
+   while a <= 2 {
+     print[88];
+     b = 0;
+     while b <= 3 {
+       print[z[a, b]];
+       b = b + 1;
+     }
+     a = a + 1;
+   }
 
    return 0;
 
