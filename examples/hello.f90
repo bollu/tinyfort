@@ -27,7 +27,7 @@ def foo(n: int): int {
 
 def main(i:int) : int {
    x : int;
-   y : int[10, 20];
+   y : int[10];
    x = 1;
    print[x+1];
 
@@ -42,6 +42,19 @@ def main(i:int) : int {
    } else {
      print[9];
    }
+
+   x = 0;
+   while x <= 9 {
+     y[x] = x;
+     x = x + 1;
+   }
+
+   x = 0;
+   while x <= 9 {
+       print[y[x]]; x = x + 1;
+   }
+
+
 
    return 0;
 

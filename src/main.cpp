@@ -177,6 +177,13 @@ Value *getOrInsertPrintInt64(llvm::Module &mod, Builder builder) {
     return c;
 }
 
+Value *getMalloc(llvm::Module &mod, Builder builder) {
+    FunctionType *fty =
+        FunctionType::get(builder.getInt8PtrTy(), builder.getInt64Ty());
+    Constant *c = mod.getOrInsertFunction("malloc", fty, {});
+    return c;
+}
+
 struct SymValue {
     // value data
     llvm::Value *symValue;
@@ -247,7 +254,8 @@ struct Codegen {
         }
     }
 
-    llvm::Value *codegenLVal(SymTable &scope, LVal *lval, Builder builder) {
+    // TODO: merge code with that of StmtSet
+    llvm::Value *codegenLValUse(SymTable &scope, LVal *lval, Builder builder) {
         cerr << __FUNCTION__ << " | codegening lval: ";
         lval->print(cerr);
         cerr << "\n";
@@ -292,7 +300,32 @@ struct Codegen {
             // generate function call.
         } else {
             // generate array index
-            assert(LV->getType()->isArrayTy());
+            assert(LV->getType()->isPointerTy());
+            LValArray *larr = static_cast<LValArray *>(lval);
+            const std::string arrname = larr->s;
+            const SymValue *sv = scope.find(arrname);
+            assert(sv != nullptr);
+            // get the type of the array so we can access the dimension
+            // sizes.
+            TypeArray *tyarr = dynamic_cast<TypeArray *>(sv->symType);
+            assert(tyarr != nullptr);
+
+            assert(larr->indeces.size() == tyarr->sizes.size() && "array indexed with different number of indeces than declaration");
+
+            Value *CurStride = builder.getInt32(1);
+            Value *CurIx = builder.getInt32(0);
+            for (int i = 0; i < larr->indeces.size(); ++i) {
+                CurIx = builder.CreateAdd(CurIx, builder.CreateMul(codegenExpr(scope, larr->indeces[i], builder), CurStride));
+                // TODO: this is kludgy. Let's not have symArrSizes. We can 
+                // regenerate this info when we want it.
+                // CurStride = builder.CreateMul(sv->symArrSizes[i], CurStride);
+                CurStride = builder.CreateMul(codegenExpr(scope, tyarr->sizes[i], builder), CurStride);
+            }
+            // int *arr = load int **arr_stackslot
+            Value *Array = builder.CreateLoad(sv->symValue);
+            // int *arr_at_ix = arr + index
+            Value *Access = builder.CreateGEP(Array, CurIx);
+            return builder.CreateLoad(Access);
         }
 
         cerr << "unknown LVal: ";
@@ -305,7 +338,7 @@ struct Codegen {
         if (ExprInt *i = dynamic_cast<ExprInt *>(e)) {
             return builder.getInt32(i->i);
         } else if (ExprLVal *lvale = dynamic_cast<ExprLVal *>(e)) {
-            return codegenLVal(scope, lvale->lval, builder);
+            return codegenLValUse(scope, lvale->lval, builder);
         } else if (ExprBinop *eb = dynamic_cast<ExprBinop *>(e)) {
             Value *l = codegenExpr(scope, eb->l, builder);
             Value *r = codegenExpr(scope, eb->r, builder);
@@ -352,7 +385,23 @@ struct Codegen {
                 for (auto it : arrty->sizes) {
                     Sizes.push_back(codegenExpr(scope, it, builder));
                 }
+                // add array into scope
                 scope.insert(let->name, new SymValue(V, let->ty, Sizes));
+
+                // compute array size
+                // start by assuming 8 bytes, and then multiply with all the sizes
+                Value *Size = builder.getInt32(8);
+                for (Value *Dimsize : Sizes) {
+                    Size = builder.CreateMul(Size, Dimsize);
+                }
+
+                // malloc memory
+                Value *MallocdMem = builder.CreateCall(getMalloc(mod, builder), 
+                        {Size});
+                MallocdMem = builder.CreateBitCast(MallocdMem, ty);
+
+                // store mallocd memory
+                builder.CreateStore(MallocdMem, V);
 
             } else {
                 // we have a regular value
@@ -366,12 +415,36 @@ struct Codegen {
                 assert(sv != nullptr);
                 builder.CreateStore(codegenExpr(scope, s->rhs, builder),
                                     sv->symValue);
+                return entry;
             } else {
                 LValArray *larr = static_cast<LValArray *>(s->lval);
-                (void)(larr);
-                assert(0 && "unknown how to codegen arrays");
+                const std::string arrname = larr->s;
+                const SymValue *sv = scope.find(arrname);
+                assert(sv != nullptr);
+                // get the type of the array so we can access the dimension
+                // sizes.
+                TypeArray *tyarr = dynamic_cast<TypeArray *>(sv->symType);
+                assert(tyarr != nullptr);
+
+                assert(larr->indeces.size() == tyarr->sizes.size() && "array indexed with different number of indeces than declaration");
+
+                Value *CurStride = builder.getInt32(1);
+                Value *CurIx = builder.getInt32(0);
+                for (int i = 0; i < larr->indeces.size(); ++i) {
+                    CurIx = builder.CreateAdd(CurIx, builder.CreateMul(codegenExpr(scope, larr->indeces[i], builder), CurStride));
+                    // TODO: this is kludgy. Let's not have symArrSizes. We can 
+                    // regenerate this info when we want it.
+                    // CurStride = builder.CreateMul(sv->symArrSizes[i], CurStride);
+                    CurStride = builder.CreateMul(codegenExpr(scope, tyarr->sizes[i], builder), CurStride);
+                }
+                // int *arr = load int **arr_stackslot
+                Value *Array = builder.CreateLoad(sv->symValue);
+                // int *arr_at_ix = arr + index
+                Value *Access = builder.CreateGEP(Array, CurIx);
+                // *arr_at_ix = val
+                builder.CreateStore(codegenExpr(scope, s->rhs, builder), Access);
+                return entry;
             }
-            return entry;
 
         } else if (StmtWhileLoop *wh = dynamic_cast<StmtWhileLoop *>(stmt)) {
             BasicBlock *condbb =
