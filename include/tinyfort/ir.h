@@ -52,9 +52,9 @@ class Type {
                 o << "void";
                 return;
             case File:
-                o << "FILE"; 
+                o << "FILE";
             case Char:
-                o << "char"; 
+                o << "char";
                 return;
         }
         assert(false && "unreachable");
@@ -71,29 +71,28 @@ class TypeBase : public Type {
 };
 
 class TypeFn : public Type {
-    public:
-        Type *retty;
-        std::vector<Type *>paramsty;
+   public:
+    Type *retty;
+    std::vector<Type *> paramsty;
 
-        TypeFn(Type *retty, std::vector<Type *>paramsty) : 
-            retty(retty), paramsty(paramsty) { }
+    TypeFn(Type *retty, std::vector<Type *> paramsty)
+        : retty(retty), paramsty(paramsty) {}
 
-
-        void print(std::ostream &o, int depth = 0) { 
-            o << "(";
-            for(int i = 0; i < (int)paramsty.size(); ++ i) {
-                paramsty[i]->print(o, depth);
-                if (i < (int)paramsty.size() - 1) o << ", ";
-            }
-            o << ") -> ";
-            retty->print(o, depth);
+    void print(std::ostream &o, int depth = 0) {
+        o << "(";
+        for (int i = 0; i < (int)paramsty.size(); ++i) {
+            paramsty[i]->print(o, depth);
+            if (i < (int)paramsty.size() - 1) o << ", ";
         }
+        o << ") -> ";
+        retty->print(o, depth);
+    }
 };
 
 class Expr {
    public:
     virtual void print(std::ostream &o, int depth = 0) = 0;
-    virtual Type* getType() const = 0;
+    virtual Type *getType() const = 0;
 };
 
 class TypeArray : public Type {
@@ -112,9 +111,7 @@ class TypeArray : public Type {
         }
         o << "]";
     }
-    Type* getType() const {
-        assert(false && "unimplemented");
-    }
+    Type *getType() const { assert(false && "unimplemented"); }
 };
 
 class LVal {
@@ -128,9 +125,7 @@ class LValIdent : public LVal {
     std::string s;
     LValIdent(std::string s) : s(s){};
 
-    Type *getType() const {
-        assert(false && "unimplemented");
-    }
+    Type *getType() const { assert(false && "unimplemented"); }
 
     void print(std::ostream &o, int depth = 0) { o << s; }
 };
@@ -151,9 +146,7 @@ class LValArray : public LVal {
         o << "]";
     }
 
-    Type *getType() const {
-        assert(false && "unimplemented");
-    }
+    Type *getType() const { assert(false && "unimplemented"); }
 };
 
 class ExprBinop : public Expr {
@@ -174,9 +167,7 @@ class ExprBinop : public Expr {
         o << ")";
     }
 
-    Type *getType() const {
-        assert(false && "unimplemented");
-    }
+    Type *getType() const { assert(false && "unimplemented"); }
 };
 
 class ExprInt : public Expr {
@@ -185,31 +176,25 @@ class ExprInt : public Expr {
     ExprInt(int i) : i(i){};
     void print(std::ostream &o, int depth = 0) { o << i; }
 
-    Type *getType() const {
-        assert(false && "unimplemented");
-    }
+    Type *getType() const { assert(false && "unimplemented"); }
 };
 
 class ExprString : public Expr {
    public:
     std::string s;
-    ExprString(std::string s) : s(s) {};
-    void print(std::ostream &o, int depth = 0) { o << s; }
+    ExprString(std::string s) : s(s){};
+    void print(std::ostream &o, int depth = 0) { o << "str(" << s << ");"; }
 
-    Type *getType() const {
-        assert(false && "unimplemented");
-    }
-};
+    Type *getType() const { assert(false && "unimplemented"); }
+};  // namespace tf
 
 class ExprChar : public Expr {
    public:
     char c;
-    ExprChar(char c) : c(c) {};
+    ExprChar(char c) : c(c){};
     void print(std::ostream &o, int depth = 0) { o << "'" << c << "'"; }
 
-    Type *getType() const {
-        assert(false && "unimplemented");
-    }
+    Type *getType() const { assert(false && "unimplemented"); }
 };
 
 class ExprLVal : public Expr {
@@ -218,16 +203,13 @@ class ExprLVal : public Expr {
     ExprLVal(LVal *lval) : lval(lval){};
     void print(std::ostream &o, int depth = 0) { lval->print(o, depth); }
 
-    Type *getType() const {
-        assert(false && "unimplemented");
-    }
+    Type *getType() const { assert(false && "unimplemented"); }
 };
 
 class Stmt {
    public:
     virtual void print(std::ostream &o, int depth = 0) = 0;
 };
-
 
 struct Block {
     std::vector<Stmt *> stmts;
@@ -296,60 +278,51 @@ class StmtExpr : public Stmt {
     }
 };
 
-
 class StmtIf : public Stmt {
-    public:
-        Expr *cond;
-        Block *inner;
-        Stmt *tail;
-        StmtIf(Expr *cond, Block *inner, Stmt *tail) : cond(cond),
-        inner(inner), tail(tail) {};
+   public:
+    Expr *cond;
+    Block *inner;
+    Stmt *tail;
+    StmtIf(Expr *cond, Block *inner, Stmt *tail)
+        : cond(cond), inner(inner), tail(tail){};
 
     void print(std::ostream &o, int depth = 0) {
         o << "if ";
         cond->print(o, depth);
-        inner->print(o,depth);
+        inner->print(o, depth);
         if (tail) {
             o << "else";
             tail->print(o, depth);
         }
     }
-
 };
 
 class StmtTailElse : public Stmt {
-    public:
-        Block *inner;
-        StmtTailElse(Block *inner) : inner(inner) {};
-        void print(std::ostream &o, int depth = 0) {
-            inner->print(o, depth);
-        }
+   public:
+    Block *inner;
+    StmtTailElse(Block *inner) : inner(inner){};
+    void print(std::ostream &o, int depth = 0) { inner->print(o, depth); }
 };
 
 class StmtReturn : public Stmt {
-    public:
-        Expr *e;
-        StmtReturn(Expr *e) : e(e) {};
-        void print(std::ostream &o, int depth = 0) {
-            o << "return ";
-            e->print(o, depth);
-        }
+   public:
+    Expr *e;
+    StmtReturn(Expr *e) : e(e){};
+    void print(std::ostream &o, int depth = 0) {
+        o << "return ";
+        e->print(o, depth);
+    }
 };
-
-
 
 struct FnDefn {
     std::string name;
     std::vector<string> formals;
     TypeFn *ty;
     Block *b;
-    FnDefn(std::string name, std::vector<string> formals,
-           TypeFn *ty, Block *b)
-        : name(name), formals(formals), ty(ty), b(b){
-
-            assert(formals.size() == ty->paramsty.size());
-
-        };
+    FnDefn(std::string name, std::vector<string> formals, TypeFn *ty, Block *b)
+        : name(name), formals(formals), ty(ty), b(b) {
+        assert(formals.size() == ty->paramsty.size());
+    };
 
     void print(std::ostream &o, int depth = 0) {
         align(o, depth);

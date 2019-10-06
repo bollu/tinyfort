@@ -185,6 +185,15 @@ Value *getOrInsertFputc(llvm::Module &mod, Builder builder) {
     return c;
 }
 
+Value *getOrInsertFputs(llvm::Module &mod, Builder builder) {
+    FunctionType *fty = FunctionType::get(builder.getVoidTy(),
+                                          {builder.getInt8Ty()->getPointerTo(),
+                                           builder.getInt8Ty()->getPointerTo()},
+                                          false);
+    Constant *c = mod.getOrInsertFunction("fputs", fty, {});
+    return c;
+}
+
 GlobalVariable *getOrInsertStdout(llvm::Module &mod, Builder builder) {
     GlobalVariable *v = mod.getGlobalVariable("stdout");
     if (v) return v;
@@ -200,6 +209,23 @@ Value *getMalloc(llvm::Module &mod, Builder builder) {
         FunctionType::get(builder.getInt8PtrTy(), builder.getInt64Ty());
     Constant *c = mod.getOrInsertFunction("malloc", fty, {});
     return c;
+}
+
+Value *getMemcpy(llvm::Module &mod, Builder builder) {
+    FunctionType *fty = FunctionType::get(
+        builder.getVoidTy(),
+        {builder.getInt8PtrTy(), builder.getInt8PtrTy(), builder.getInt64Ty()},
+        false);
+    Constant *c = mod.getOrInsertFunction("memcpy", fty, {});
+    return c;
+}
+
+void createCallMemcpy(llvm::Module &mod, Builder builder, Value *Dest,
+                      Value *Src, Value *NBytes) {
+    Dest = builder.CreateBitOrPointerCast(Dest, builder.getInt8PtrTy());
+    Src = builder.CreateBitOrPointerCast(Src, builder.getInt8PtrTy());
+    NBytes = builder.CreateSExt(NBytes, builder.getInt64Ty());
+    builder.CreateCall(getMemcpy(mod, builder), {Dest, Src, NBytes});
 }
 
 struct SymValue {
@@ -238,6 +264,10 @@ struct Codegen {
                      new SymValue(getOrInsertFputc(mod, builder),
                                   /*TODO: add function types */ nullptr));
 
+        scope.insert("fputs",
+                     new SymValue(getOrInsertFputs(mod, builder),
+                                  /*TODO: add function types */ nullptr));
+
         scope.insert("stdout", new SymValue(getOrInsertStdout(mod, builder),
                                             /*TODO: add file types*/ nullptr));
 
@@ -246,7 +276,7 @@ struct Codegen {
         }
     }
 
-    llvm::Type *getBaseType(const tf::TypeBaseName base) {
+    llvm::Type *getBaseLLVMType(const tf::TypeBaseName base) {
         switch (base) {
             case TypeBaseName::Int:
                 return llvm::Type::getInt32Ty(ctx);
@@ -264,7 +294,7 @@ struct Codegen {
 
     llvm::Type *getLLVMType(const tf::Type *t) {
         if (const tf::TypeArray *arr = dynamic_cast<const TypeArray *>(t)) {
-            llvm::Type *base = getBaseType(arr->t);
+            llvm::Type *base = getBaseLLVMType(arr->t);
             return base->getPointerTo();
         } else if (const tf::TypeFn *fty = dynamic_cast<const TypeFn *>(t)) {
             llvm::SmallVector<llvm::Type *, 4> paramTypes;
@@ -276,7 +306,7 @@ struct Codegen {
 
         } else {
             const tf::TypeBase *bt = dynamic_cast<const TypeBase *>(t);
-            return getBaseType(bt->t);
+            return getBaseLLVMType(bt->t);
         }
         assert(false && "uknown type");
     }
@@ -313,6 +343,9 @@ struct Codegen {
         }
 
         SymValue *sv = scope.find(arr->s);
+        if (sv == nullptr) {
+            errs() << "unable to find value: [" << arr->s << "]\n";
+        }
         assert(sv != nullptr);
         Value *LV = sv->symValue;
         assert(LV != nullptr);
@@ -351,7 +384,8 @@ struct Codegen {
                                CurStride));
                 // TODO: this is kludgy. Let's not have symArrSizes. We can
                 // regenerate this info when we want it.
-                // CurStride = builder.CreateMul(sv->symArrSizes[i], CurStride);
+                // CurStride = builder.CreateMul(sv->symArrSizes[i],
+                // CurStride);
                 CurStride = builder.CreateMul(
                     codegenExpr(scope, tyarr->sizes[i], builder), CurStride);
             }
@@ -373,6 +407,8 @@ struct Codegen {
             return builder.getInt32(i->i);
         } else if (ExprChar *c = dynamic_cast<ExprChar *>(e)) {
             return builder.getInt8(c->c);
+        } else if (ExprString *s = dynamic_cast<ExprString *>(e)) {
+            return builder.CreateGlobalString(s->s.c_str());
         } else if (ExprLVal *lvale = dynamic_cast<ExprLVal *>(e)) {
             return codegenLValUse(scope, lvale->lval, builder);
         } else if (ExprBinop *eb = dynamic_cast<ExprBinop *>(e)) {
@@ -448,12 +484,48 @@ struct Codegen {
             return entry;
 
         } else if (StmtSet *s = dynamic_cast<StmtSet *>(stmt)) {
+            // we can have g = ...
+            // where g is an array!
             if (LValIdent *lid = dynamic_cast<LValIdent *>(s->lval)) {
                 SymValue *sv = scope.find(lid->s);
                 assert(sv != nullptr);
-                builder.CreateStore(codegenExpr(scope, s->rhs, builder),
-                                    sv->symValue);
-                return entry;
+
+                // g : char[10]
+                // g = "abba"; g is registered as a LValIdent, but this is
+                // really an array-copy instruction.
+                if (tf::TypeArray *ta =
+                        dynamic_cast<tf::TypeArray *>(sv->symType)) {
+                    // array on the RHS, in this case, "abba";
+                    // TODO: add checks that the type of LHS and type of RHS
+                    // match
+                    // Right now, we codegen a memcpy
+                    Value *RightArr = codegenExpr(scope, s->rhs, builder);
+
+                    // size = elemsize * [index sizes]
+                    const int elemsize = mod.getDataLayout().getTypeStoreSize(
+                        getBaseLLVMType(ta->t));
+                    Value *Size = builder.getInt32(elemsize);
+                    for (int i = 0; i < ta->sizes.size(); ++i) {
+                        Size = builder.CreateMul(
+                            Size, codegenExpr(scope, ta->sizes[i], builder));
+                    }
+                    // int **g_stackslot = sv->symvalue
+                    // int *g_mem = *g_stackslot = LeftArr
+                    Value *LeftArr = builder.CreateLoad(sv->symValue);
+
+                    // create a memcpy of the RHS into the LHS of the size
+                    // of the array.
+                    createCallMemcpy(mod, builder, LeftArr, RightArr, Size);
+                    return entry;
+
+                } else {
+                    assert(dynamic_cast<tf::TypeBase *>(sv->symType) &&
+                           "need this to be basic type");
+                    builder.CreateStore(codegenExpr(scope, s->rhs, builder),
+                                        sv->symValue);
+                    return entry;
+                }
+                assert(false && "unreachable");
             } else {
                 LValArray *larr = static_cast<LValArray *>(s->lval);
                 const std::string arrname = larr->s;
@@ -476,10 +548,9 @@ struct Codegen {
                         builder.CreateMul(
                             codegenExpr(scope, larr->indeces[i], builder),
                             CurStride));
-                    // TODO: this is kludgy. Let's not have symArrSizes. We can
-                    // regenerate this info when we want it.
-                    // CurStride = builder.CreateMul(sv->symArrSizes[i],
-                    // CurStride);
+                    // TODO: this is kludgy. Let's not have symArrSizes. We
+                    // can regenerate this info when we want it. CurStride =
+                    // builder.CreateMul(sv->symArrSizes[i], CurStride);
                     CurStride = builder.CreateMul(
                         codegenExpr(scope, tyarr->sizes[i], builder),
                         CurStride);
@@ -493,7 +564,6 @@ struct Codegen {
                                     Access);
                 return entry;
             }
-
         } else if (StmtWhileLoop *wh = dynamic_cast<StmtWhileLoop *>(stmt)) {
             BasicBlock *condbb =
                 llvm::BasicBlock::Create(ctx, "while.cond", entry->getParent());
@@ -516,7 +586,6 @@ struct Codegen {
             builder.CreateBr(condbb);
 
             return exitbb;
-
         } else if (StmtIf *sif = dynamic_cast<StmtIf *>(stmt)) {
             BasicBlock *thenbb =
                 llvm::BasicBlock::Create(ctx, "if.then", entry->getParent());
@@ -549,14 +618,12 @@ struct Codegen {
             }
 
             return joinbb;
-
         } else if (StmtTailElse *te = dynamic_cast<StmtTailElse *>(stmt)) {
             return codegenBlock(scope, te->inner, entry, builder);
         } else if (StmtReturn *sret = dynamic_cast<StmtReturn *>(stmt)) {
             Value *V = codegenExpr(scope, sret->e, builder);
             builder.CreateRet(V);
             return entry;
-
         } else {
             StmtExpr *se = dynamic_cast<StmtExpr *>(stmt);
             assert(se != nullptr);
@@ -669,8 +736,8 @@ int compile_program(int argc, char **argv, tf::Program *p) {
         auto RM = Optional<Reloc::Model>();
         const std::string Features = "";
         llvm::TargetMachine *TM =
-            Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
-        c.mod.setDataLayout(TM->createDataLayout());
+            Target->createTargetMachine(TargetTriple, CPU, Features, opt,
+    RM); c.mod.setDataLayout(TM->createDataLayout());
     }
     */
 
