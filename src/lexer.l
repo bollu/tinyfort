@@ -31,6 +31,7 @@ int compile_program(int argc, char **argv, tf::Program *p);
 
 
 %%
+['].['] { yylval.c = yytext[1]; return CHAR; }
 ["].*?["] { yylval.str = new std::string(yytext); return STRING; }
 "("            return OPENPAREN; 
 ")"            return CLOSEPAREN;
@@ -59,11 +60,12 @@ int compile_program(int argc, char **argv, tf::Program *p);
 "if"          return IF;
 "elif"          return ELIF;
 "else"          return ELSE;
-"int"          return INT;
+"int"          return INTTY;
+"char"         return CHARTY;
 "FILE"          return FILETY;
-"float"          return FLOAT;
-"bool"          return BOOL;
-"void"          return VOID;
+"float"          return FLOATTY;
+"bool"          return BOOLTY;
+"void"          return VOIDTY;
 "return"          return RETURN;
 
 [ \t]          ;

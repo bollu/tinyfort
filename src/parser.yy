@@ -40,6 +40,7 @@ std::vector<tf::FnDefn *> g_fndefns;
   tf::FnDefn *fndefn;
   tf::Type *type;
   int i;
+  char c;
 }
 
 %token ASSIGN
@@ -77,10 +78,11 @@ std::vector<tf::FnDefn *> g_fndefns;
 %token WHILE;
 %token OPENSQUARE;
 %token CLOSESQUARE;
-%token INT;
-%token FLOAT;
-%token BOOL;
-%token VOID;
+%token INTTY;
+%token FLOATTY;
+%token BOOLTY;
+%token CHARTY;
+%token VOIDTY;
 %token RETURN;
 %token FILETY;
 
@@ -107,6 +109,7 @@ std::vector<tf::FnDefn *> g_fndefns;
 %token <i>	INTEGER;
 %token <str>	IDENTIFIER;
 %token <str>  STRING;
+%token <c>  CHAR;
 %%
 toplevel:
         program {
@@ -150,6 +153,7 @@ expr4:
      |  INTEGER { $$ = new tf::ExprInt($1); } 
      | STRING { $$ = new tf::ExprString(*$1); }
      | lval { $$ = new tf::ExprLVal($1); }
+     | CHAR { $$ = new tf::ExprChar($1); }
 
 exprtuple_: 
   exprtuple_ COMMA expr  { $$ = $1; $$->push_back($3); }
@@ -173,14 +177,16 @@ type:
     }
 
 basetype: 
-    INT {
+    INTTY {
         $$ = new tf::TypeBase(tf::TypeBaseName::Int);
-    } | FLOAT {
+    } | FLOATTY {
         $$ = new tf::TypeBase(tf::TypeBaseName::Float);
-    } | VOID {
+    } | VOIDTY {
         $$ = new tf::TypeBase(tf::TypeBaseName::Void);
     } | FILETY {
         $$ = new tf::TypeBase(tf::TypeBaseName::File);
+    } | CHARTY {
+        $$ = new tf::TypeBase(tf::TypeBaseName::Char);
     }
 
 stmt: 

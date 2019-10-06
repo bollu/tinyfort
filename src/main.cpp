@@ -177,6 +177,24 @@ Value *getOrInsertPrintInt64(llvm::Module &mod, Builder builder) {
     return c;
 }
 
+Value *getOrInsertFputc(llvm::Module &mod, Builder builder) {
+    FunctionType *fty = FunctionType::get(
+        builder.getVoidTy(),
+        {builder.getInt8Ty(), builder.getInt8Ty()->getPointerTo()}, false);
+    Constant *c = mod.getOrInsertFunction("fputc", fty, {});
+    return c;
+}
+
+GlobalVariable *getOrInsertStdout(llvm::Module &mod, Builder builder) {
+    GlobalVariable *v = mod.getGlobalVariable("stdout");
+    if (v) return v;
+
+    GlobalVariable *gstdout = new GlobalVariable(
+        mod, builder.getInt8Ty()->getPointerTo(), /*isConstant=*/false,
+        GlobalValue::ExternalLinkage, nullptr, "stdout");
+    return gstdout;
+}
+
 Value *getMalloc(llvm::Module &mod, Builder builder) {
     FunctionType *fty =
         FunctionType::get(builder.getInt8PtrTy(), builder.getInt64Ty());
@@ -216,6 +234,12 @@ struct Codegen {
             "printInt64",
             new SymValue(getOrInsertPrintInt64(mod, builder),
                          /* TODO: add function types into IR */ nullptr));
+        scope.insert("fputc",
+                     new SymValue(getOrInsertFputc(mod, builder),
+                                  /*TODO: add function types */ nullptr));
+
+        scope.insert("stdout", new SymValue(getOrInsertStdout(mod, builder),
+                                            /*TODO: add file types*/ nullptr));
 
         for (auto it : p.fndefns) {
             this->codegenFunction(scope, it, builder);
@@ -232,7 +256,10 @@ struct Codegen {
                 return llvm::Type::getInt1Ty(ctx);
             case TypeBaseName::Void:
                 return llvm::Type::getVoidTy(ctx);
+            case TypeBaseName::Char:
+                return llvm::Type::getInt8Ty(ctx);
         }
+        assert(false && "unknown base type");
     }
 
     llvm::Type *getLLVMType(const tf::Type *t) {
@@ -244,7 +271,6 @@ struct Codegen {
             for (auto it : fty->paramsty) {
                 paramTypes.push_back(getLLVMType(it));
             }
-
             return FunctionType::get(getLLVMType(fty->retty), paramTypes,
                                      /*isVarArg=*/false);
 
@@ -252,6 +278,7 @@ struct Codegen {
             const tf::TypeBase *bt = dynamic_cast<const TypeBase *>(t);
             return getBaseType(bt->t);
         }
+        assert(false && "uknown type");
     }
 
     // TODO: merge code with that of StmtSet
@@ -272,7 +299,8 @@ struct Codegen {
         assert(arr != nullptr);
 
         if (arr->s == "print") {
-            for (auto it : arr->indeces) {
+            for (Expr *it : arr->indeces) {
+                // TODO: we should use types to figure this out.
                 Value *Arg = codegenExpr(scope, it, builder);
                 if (Arg->getType()->isIntegerTy()) {
                     Value *fn = scope.find("printInt64")->symValue;
@@ -310,16 +338,22 @@ struct Codegen {
             TypeArray *tyarr = dynamic_cast<TypeArray *>(sv->symType);
             assert(tyarr != nullptr);
 
-            assert(larr->indeces.size() == tyarr->sizes.size() && "array indexed with different number of indeces than declaration");
+            assert(larr->indeces.size() == tyarr->sizes.size() &&
+                   "array indexed with different number of indeces than "
+                   "declaration");
 
             Value *CurStride = builder.getInt32(1);
             Value *CurIx = builder.getInt32(0);
             for (int i = 0; i < larr->indeces.size(); ++i) {
-                CurIx = builder.CreateAdd(CurIx, builder.CreateMul(codegenExpr(scope, larr->indeces[i], builder), CurStride));
-                // TODO: this is kludgy. Let's not have symArrSizes. We can 
+                CurIx = builder.CreateAdd(
+                    CurIx, builder.CreateMul(
+                               codegenExpr(scope, larr->indeces[i], builder),
+                               CurStride));
+                // TODO: this is kludgy. Let's not have symArrSizes. We can
                 // regenerate this info when we want it.
                 // CurStride = builder.CreateMul(sv->symArrSizes[i], CurStride);
-                CurStride = builder.CreateMul(codegenExpr(scope, tyarr->sizes[i], builder), CurStride);
+                CurStride = builder.CreateMul(
+                    codegenExpr(scope, tyarr->sizes[i], builder), CurStride);
             }
             // int *arr = load int **arr_stackslot
             Value *Array = builder.CreateLoad(sv->symValue);
@@ -337,6 +371,8 @@ struct Codegen {
     llvm::Value *codegenExpr(SymTable &scope, Expr *e, Builder builder) {
         if (ExprInt *i = dynamic_cast<ExprInt *>(e)) {
             return builder.getInt32(i->i);
+        } else if (ExprChar *c = dynamic_cast<ExprChar *>(e)) {
+            return builder.getInt8(c->c);
         } else if (ExprLVal *lvale = dynamic_cast<ExprLVal *>(e)) {
             return codegenLValUse(scope, lvale->lval, builder);
         } else if (ExprBinop *eb = dynamic_cast<ExprBinop *>(e)) {
@@ -363,8 +399,9 @@ struct Codegen {
             }
         }
 
-        cerr << "unable to codegen expression:\n";
+        cerr << "unable to codegen expression:\n[";
         e->print(cerr);
+        cerr << "]";
         assert(false && "unknown expression to codegen");
     }
 
@@ -389,15 +426,16 @@ struct Codegen {
                 scope.insert(let->name, new SymValue(V, let->ty, Sizes));
 
                 // compute array size
-                // start by assuming 8 bytes, and then multiply with all the sizes
+                // start by assuming 8 bytes, and then multiply with all the
+                // sizes
                 Value *Size = builder.getInt32(8);
                 for (Value *Dimsize : Sizes) {
                     Size = builder.CreateMul(Size, Dimsize);
                 }
 
                 // malloc memory
-                Value *MallocdMem = builder.CreateCall(getMalloc(mod, builder), 
-                        {Size});
+                Value *MallocdMem =
+                    builder.CreateCall(getMalloc(mod, builder), {Size});
                 MallocdMem = builder.CreateBitCast(MallocdMem, ty);
 
                 // store mallocd memory
@@ -426,23 +464,33 @@ struct Codegen {
                 TypeArray *tyarr = dynamic_cast<TypeArray *>(sv->symType);
                 assert(tyarr != nullptr);
 
-                assert(larr->indeces.size() == tyarr->sizes.size() && "array indexed with different number of indeces than declaration");
+                assert(larr->indeces.size() == tyarr->sizes.size() &&
+                       "array indexed with different number of indeces than "
+                       "declaration");
 
                 Value *CurStride = builder.getInt32(1);
                 Value *CurIx = builder.getInt32(0);
                 for (int i = 0; i < larr->indeces.size(); ++i) {
-                    CurIx = builder.CreateAdd(CurIx, builder.CreateMul(codegenExpr(scope, larr->indeces[i], builder), CurStride));
-                    // TODO: this is kludgy. Let's not have symArrSizes. We can 
+                    CurIx = builder.CreateAdd(
+                        CurIx,
+                        builder.CreateMul(
+                            codegenExpr(scope, larr->indeces[i], builder),
+                            CurStride));
+                    // TODO: this is kludgy. Let's not have symArrSizes. We can
                     // regenerate this info when we want it.
-                    // CurStride = builder.CreateMul(sv->symArrSizes[i], CurStride);
-                    CurStride = builder.CreateMul(codegenExpr(scope, tyarr->sizes[i], builder), CurStride);
+                    // CurStride = builder.CreateMul(sv->symArrSizes[i],
+                    // CurStride);
+                    CurStride = builder.CreateMul(
+                        codegenExpr(scope, tyarr->sizes[i], builder),
+                        CurStride);
                 }
                 // int *arr = load int **arr_stackslot
                 Value *Array = builder.CreateLoad(sv->symValue);
                 // int *arr_at_ix = arr + index
                 Value *Access = builder.CreateGEP(Array, CurIx);
                 // *arr_at_ix = val
-                builder.CreateStore(codegenExpr(scope, s->rhs, builder), Access);
+                builder.CreateStore(codegenExpr(scope, s->rhs, builder),
+                                    Access);
                 return entry;
             }
 

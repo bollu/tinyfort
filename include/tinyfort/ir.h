@@ -31,7 +31,7 @@ void printBinop(std::ostream &o, tf::Binop bp);
 
 class Block;
 
-enum TypeBaseName { Int, Float, Bool, File, Void };
+enum TypeBaseName { Int, Float, Bool, File, Char, Void };
 
 class Type {
    public:
@@ -53,6 +53,8 @@ class Type {
                 return;
             case File:
                 o << "FILE"; 
+            case Char:
+                o << "char"; 
                 return;
         }
         assert(false && "unreachable");
@@ -91,6 +93,7 @@ class TypeFn : public Type {
 class Expr {
    public:
     virtual void print(std::ostream &o, int depth = 0) = 0;
+    virtual Type* getType() const = 0;
 };
 
 class TypeArray : public Type {
@@ -109,10 +112,14 @@ class TypeArray : public Type {
         }
         o << "]";
     }
+    Type* getType() const {
+        assert(false && "unimplemented");
+    }
 };
 
 class LVal {
    public:
+    virtual Type *getType() const = 0;
     virtual void print(std::ostream &o, int depth = 0) = 0;
 };
 
@@ -120,6 +127,10 @@ class LValIdent : public LVal {
    public:
     std::string s;
     LValIdent(std::string s) : s(s){};
+
+    Type *getType() const {
+        assert(false && "unimplemented");
+    }
 
     void print(std::ostream &o, int depth = 0) { o << s; }
 };
@@ -138,6 +149,10 @@ class LValArray : public LVal {
             if (i < indeces.size() - 1) o << ", ";
         }
         o << "]";
+    }
+
+    Type *getType() const {
+        assert(false && "unimplemented");
     }
 };
 
@@ -158,6 +173,10 @@ class ExprBinop : public Expr {
         r->print(o, depth);
         o << ")";
     }
+
+    Type *getType() const {
+        assert(false && "unimplemented");
+    }
 };
 
 class ExprInt : public Expr {
@@ -165,6 +184,10 @@ class ExprInt : public Expr {
     int i;
     ExprInt(int i) : i(i){};
     void print(std::ostream &o, int depth = 0) { o << i; }
+
+    Type *getType() const {
+        assert(false && "unimplemented");
+    }
 };
 
 class ExprString : public Expr {
@@ -172,6 +195,21 @@ class ExprString : public Expr {
     std::string s;
     ExprString(std::string s) : s(s) {};
     void print(std::ostream &o, int depth = 0) { o << s; }
+
+    Type *getType() const {
+        assert(false && "unimplemented");
+    }
+};
+
+class ExprChar : public Expr {
+   public:
+    char c;
+    ExprChar(char c) : c(c) {};
+    void print(std::ostream &o, int depth = 0) { o << "'" << c << "'"; }
+
+    Type *getType() const {
+        assert(false && "unimplemented");
+    }
 };
 
 class ExprLVal : public Expr {
@@ -179,6 +217,10 @@ class ExprLVal : public Expr {
     LVal *lval;
     ExprLVal(LVal *lval) : lval(lval){};
     void print(std::ostream &o, int depth = 0) { lval->print(o, depth); }
+
+    Type *getType() const {
+        assert(false && "unimplemented");
+    }
 };
 
 class Stmt {
