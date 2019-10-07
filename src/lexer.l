@@ -67,6 +67,7 @@ int compile_program(int argc, char **argv, tf::Program *p);
 "bool"          return BOOLTY;
 "void"          return VOIDTY;
 "return"          return RETURN;
+"import"         return IMPORT;
 
 [ \t]          ;
 

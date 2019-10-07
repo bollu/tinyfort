@@ -260,19 +260,25 @@ struct Codegen {
             "printInt64",
             new SymValue(getOrInsertPrintInt64(mod, builder),
                          /* TODO: add function types into IR */ nullptr));
-        scope.insert("fputc",
-                     new SymValue(getOrInsertFputc(mod, builder),
-                                  /*TODO: add function types */ nullptr));
+        // scope.insert("fputc",
+        //              new SymValue(getOrInsertFputc(mod, builder),
+        //                           /*TODO: add function types */ nullptr));
 
-        scope.insert("fputs",
-                     new SymValue(getOrInsertFputs(mod, builder),
-                                  /*TODO: add function types */ nullptr));
+        // scope.insert("fputs",
+        //              new SymValue(getOrInsertFputs(mod, builder),
+        //                           /*TODO: add function types */ nullptr));
 
         scope.insert("stdout", new SymValue(getOrInsertStdout(mod, builder),
                                             /*TODO: add file types*/ nullptr));
+        for (FnImport *import : p.fnimports) {
+            scope.insert(
+                import->name,
+                new SymValue(this->codegenImport(scope, import, builder),
+                             /*TODO: add function types */ nullptr));
+        }
 
-        for (auto it : p.fndefns) {
-            this->codegenFunction(scope, it, builder);
+        for (FnDefn *fndefn : p.fndefns) {
+            this->codegenFunction(scope, fndefn, builder);
         }
     }
 
@@ -288,7 +294,12 @@ struct Codegen {
                 return llvm::Type::getVoidTy(ctx);
             case TypeBaseName::Char:
                 return llvm::Type::getInt8Ty(ctx);
+            case TypeBaseName::File:
+                return llvm::Type::getInt8PtrTy(ctx);
         }
+        cerr << "unknown base type: |";
+        tf::Type::printTypeBaseName(cerr, base);
+        cerr << "|\n";
         assert(false && "unknown base type");
     }
 
@@ -641,6 +652,18 @@ struct Codegen {
             entry = codegenStmt(scope, stmt, entry, builder);
         }
         return entry;
+    }
+
+    // codegen an extern here
+    Constant *codegenImport(SymTable &scope, FnImport *f, Builder builder) {
+        llvm::Type *retty = getLLVMType(f->ty->retty);
+        SmallVector<llvm::Type *, 4> argtys;
+        for (int i = 0; i < f->ty->paramsty.size(); ++i) {
+            argtys.push_back(getLLVMType(f->ty->paramsty[i]));
+        }
+
+        FunctionType *fty = FunctionType::get(retty, argtys, false);
+        return mod.getOrInsertFunction(f->name, fty, {});
     }
 
     Function *codegenFunction(SymTable &scope, FnDefn *f, Builder builder) {

@@ -53,6 +53,7 @@ class Type {
                 return;
             case File:
                 o << "FILE";
+                return;
             case Char:
                 o << "char";
                 return;
@@ -314,6 +315,34 @@ class StmtReturn : public Stmt {
     }
 };
 
+struct FnImport {
+    std::string name;
+    std::vector<string> formals;
+    TypeFn *ty;
+
+    FnImport(std::string name, std::vector<string> formals, TypeFn *ty)
+        : name(name), formals(formals), ty(ty) {
+        assert(formals.size() == ty->paramsty.size());
+    };
+
+    void print(std::ostream &o, int depth = 0) {
+        align(o, depth);
+        o << "import " << name << "(";
+
+        for (int i = 0; i < (int)formals.size(); ++i) {
+            o << formals[i] << ":";
+            ty->paramsty[i]->print(o);
+            if (i < (int)formals.size() - 1) {
+                o << ", ";
+            }
+        }
+
+        o << ")";
+        o << " : ";
+        ty->retty->print(o);
+    }
+};
+
 struct FnDefn {
     std::string name;
     std::vector<string> formals;
@@ -345,10 +374,16 @@ struct FnDefn {
 };
 
 struct Program {
+    std::vector<FnImport *> fnimports;
     std::vector<FnDefn *> fndefns;
-    Program(std::vector<FnDefn *> fndefns) : fndefns(fndefns) {}
+    Program(std::vector<FnImport *> fnimports, std::vector<FnDefn *> fndefns)
+        : fnimports(fnimports), fndefns(fndefns) {}
 
     void print(std::ostream &o) {
+        for (auto it : fnimports) {
+            it->print(o);
+            o << "\n";
+        }
         for (auto it : fndefns) {
             it->print(o);
             o << "\n";
