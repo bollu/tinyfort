@@ -343,6 +343,17 @@ struct FnImport {
     }
 };
 
+struct VarImport {
+    std::string name;
+    Type *ty;
+    VarImport(std::string name, Type *ty) : name(name), ty(ty){};
+    void print(std::ostream &o, int depth = 0) {
+        align(o, depth);
+        o << "import " << name << " : ";
+        ty->print(o);
+    }
+};
+
 struct FnDefn {
     std::string name;
     std::vector<string> formals;
@@ -375,11 +386,18 @@ struct FnDefn {
 
 struct Program {
     std::vector<FnImport *> fnimports;
+    std::vector<VarImport *> varimports;
     std::vector<FnDefn *> fndefns;
-    Program(std::vector<FnImport *> fnimports, std::vector<FnDefn *> fndefns)
-        : fnimports(fnimports), fndefns(fndefns) {}
+    Program(std::vector<FnImport *> fnimports,
+            std::vector<VarImport *> varimports, std::vector<FnDefn *> fndefns)
+        : fnimports(fnimports), varimports(varimports), fndefns(fndefns) {}
 
     void print(std::ostream &o) {
+        for (VarImport *import : varimports) {
+            import->print(o);
+            o << "\n";
+        }
+
         for (auto it : fnimports) {
             it->print(o);
             o << "\n";

@@ -268,12 +268,20 @@ struct Codegen {
         //              new SymValue(getOrInsertFputs(mod, builder),
         //                           /*TODO: add function types */ nullptr));
 
-        scope.insert("stdout", new SymValue(getOrInsertStdout(mod, builder),
-                                            /*TODO: add file types*/ nullptr));
+        // scope.insert("stdout", new SymValue(getOrInsertStdout(mod, builder),
+        //                                     /*TODO: add file types*/
+        //                                     nullptr));
+
         for (FnImport *import : p.fnimports) {
             scope.insert(
                 import->name,
-                new SymValue(this->codegenImport(scope, import, builder),
+                new SymValue(this->codegenFnImport(scope, import, builder),
+                             /*TODO: add function types */ nullptr));
+        }
+        for (VarImport *import : p.varimports) {
+            scope.insert(
+                import->name,
+                new SymValue(this->codegenVarImport(scope, import, builder),
                              /*TODO: add function types */ nullptr));
         }
 
@@ -655,7 +663,7 @@ struct Codegen {
     }
 
     // codegen an extern here
-    Constant *codegenImport(SymTable &scope, FnImport *f, Builder builder) {
+    Constant *codegenFnImport(SymTable &scope, FnImport *f, Builder builder) {
         llvm::Type *retty = getLLVMType(f->ty->retty);
         SmallVector<llvm::Type *, 4> argtys;
         for (int i = 0; i < f->ty->paramsty.size(); ++i) {
@@ -664,6 +672,15 @@ struct Codegen {
 
         FunctionType *fty = FunctionType::get(retty, argtys, false);
         return mod.getOrInsertFunction(f->name, fty, {});
+    }
+
+    GlobalVariable *codegenVarImport(SymTable &scope, VarImport *v,
+                                     Builder builder) {
+        llvm::Type *ty = getLLVMType(v->ty);
+
+        return new GlobalVariable(mod, ty, /*isConstant=*/false,
+                                  GlobalValue::ExternalLinkage, nullptr,
+                                  v->name);
     }
 
     Function *codegenFunction(SymTable &scope, FnDefn *f, Builder builder) {

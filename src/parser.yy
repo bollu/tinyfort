@@ -24,6 +24,7 @@ void yyerror(const char *s) {
 
 tf::Program *g_program;
 std::vector<tf::FnImport *> g_fnimports;
+std::vector<tf::VarImport *> g_varimports;
 std::vector<tf::FnDefn *> g_fndefns;
 
 
@@ -39,6 +40,7 @@ std::vector<tf::FnDefn *> g_fndefns;
   tf::LVal *lval;
   std::string *str;
   tf::FnImport *fnimport;
+  tf::VarImport *varimport;
   tf::FnDefn *fndefn;
   tf::Type *type;
   int i;
@@ -105,6 +107,7 @@ std::vector<tf::FnDefn *> g_fndefns;
 %type <UNDEF> program;
 %type <fndefn> fndefn;
 %type <fnimport> fnimport;
+%type <varimport> varimport;
 %type <fnparams> fnparams;
 %type <fnparams> fnparamsNonEmpty;
 %type <type>	basetype;
@@ -117,7 +120,7 @@ std::vector<tf::FnDefn *> g_fndefns;
 %%
 toplevel:
         program { 
-        g_program = new tf::Program(g_fnimports, g_fndefns);
+        g_program = new tf::Program(g_fnimports, g_varimports, g_fndefns);
               }
 program:
   program topleveldefn
@@ -126,6 +129,7 @@ program:
 topleveldefn:
   fndefn { g_fndefns.push_back($1); }
   | fnimport { g_fnimports.push_back($1); }
+  | varimport { g_varimports.push_back($1); }
 
 block: OPENFLOWER CLOSEFLOWER { $$ = new tf::Block({}); }
      | OPENFLOWER stmts CLOSEFLOWER {
@@ -229,6 +233,10 @@ fnimport: IMPORT IDENTIFIER fnparams COLON type {
       }
       tf::TypeFn *tyfn = new tf::TypeFn($type, paramtys);
       $$ = new tf::FnImport(*$IDENTIFIER, formals, tyfn);
+ }
+
+varimport: IMPORT IDENTIFIER COLON type {
+         $$ = new tf::VarImport(*$IDENTIFIER, $type);
  }
 
 
