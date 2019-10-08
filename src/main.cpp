@@ -99,6 +99,9 @@ class Scope {
         if (inner)
             inner.getValue()->insert(k, v);
         else {
+            if (m.find(k) != m.end()) {
+                cerr << "adding known key: |" << k << "| \n";
+            }
             assert(m.find(k) == m.end());
             m.insert(std::make_pair(k, v));
         }
@@ -332,10 +335,13 @@ struct Codegen {
 
     // TODO: merge code with that of StmtSet
     llvm::Value *codegenLValUse(SymTable &scope, LVal *lval, Builder builder) {
-        lval->print(cerr);
-        cerr << "\n";
         if (LValIdent *id = dynamic_cast<LValIdent *>(lval)) {
             SymValue *sv = scope.find(id->name);
+            if (sv == nullptr) {
+                cerr << "unable to find LVal: |";
+                lval->print(cerr);
+                cerr << "|\n";
+            }
             assert(sv != nullptr);
             Value *V = sv->symValue;
             assert(V != nullptr);
