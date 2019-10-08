@@ -332,11 +332,10 @@ struct Codegen {
 
     // TODO: merge code with that of StmtSet
     llvm::Value *codegenLValUse(SymTable &scope, LVal *lval, Builder builder) {
-        cerr << __FUNCTION__ << " | codegening lval: ";
         lval->print(cerr);
         cerr << "\n";
         if (LValIdent *id = dynamic_cast<LValIdent *>(lval)) {
-            SymValue *sv = scope.find(id->s);
+            SymValue *sv = scope.find(id->name);
             assert(sv != nullptr);
             Value *V = sv->symValue;
             assert(V != nullptr);
@@ -347,23 +346,9 @@ struct Codegen {
         const LValArray *arr = dynamic_cast<LValArray *>(lval);
         assert(arr != nullptr);
 
-        if (arr->s == "print") {
-            for (Expr *it : arr->indeces) {
-                // TODO: we should use types to figure this out.
-                Value *Arg = codegenExpr(scope, it, builder);
-                if (Arg->getType()->isIntegerTy()) {
-                    Value *fn = scope.find("printInt64")->symValue;
-                    Arg = builder.CreateSExtOrTrunc(Arg, builder.getInt64Ty());
-                    Value *V = builder.CreateCall(fn, {Arg});
-                    return V;
-                }
-            }
-            return nullptr;
-        }
-
-        SymValue *sv = scope.find(arr->s);
+        SymValue *sv = scope.find(arr->name);
         if (sv == nullptr) {
-            errs() << "unable to find value: [" << arr->s << "]\n";
+            errs() << "unable to find value: [" << arr->name << "]\n";
         }
         assert(sv != nullptr);
         Value *LV = sv->symValue;
@@ -374,54 +359,38 @@ struct Codegen {
             args.push_back(codegenExpr(scope, arr->indeces[i], builder));
         }
 
-        if (LV->getType()->isPointerTy() &&
-            LV->getType()->getPointerElementType()->isFunctionTy()) {
-            // TODO: need a notion of char[_],which is a pointer...
-            // alternatively, based on type, we need to infer that any send
-            // of an array should be a send-a-pointer.
-            return builder.CreateCall(LV, args);
-            // generate function call.
-        } else {
-            // generate array index
-            assert(LV->getType()->isPointerTy());
-            LValArray *larr = static_cast<LValArray *>(lval);
-            const std::string arrname = larr->s;
-            const SymValue *sv = scope.find(arrname);
-            assert(sv != nullptr);
-            // get the type of the array so we can access the dimension
-            // sizes.
-            TypeArray *tyarr = dynamic_cast<TypeArray *>(sv->symType);
-            assert(tyarr != nullptr);
+        // generate array index
+        assert(LV->getType()->isPointerTy());
+        LValArray *larr = static_cast<LValArray *>(lval);
+        assert(sv != nullptr);
+        // get the type of the array so we can access the dimension
+        // sizes.
+        TypeArray *tyarr = dynamic_cast<TypeArray *>(sv->symType);
+        assert(tyarr != nullptr);
 
-            assert(larr->indeces.size() == tyarr->sizes.size() &&
-                   "array indexed with different number of indeces than "
-                   "declaration");
+        assert(larr->indeces.size() == tyarr->sizes.size() &&
+               "array indexed with different number of indeces than "
+               "declaration");
 
-            Value *CurStride = builder.getInt32(1);
-            Value *CurIx = builder.getInt32(0);
-            for (int i = 0; i < larr->indeces.size(); ++i) {
-                CurIx = builder.CreateAdd(
-                    CurIx, builder.CreateMul(
-                               codegenExpr(scope, larr->indeces[i], builder),
-                               CurStride));
-                // TODO: this is kludgy. Let's not have symArrSizes. We can
-                // regenerate this info when we want it.
-                // CurStride = builder.CreateMul(sv->symArrSizes[i],
-                // CurStride);
-                CurStride = builder.CreateMul(
-                    codegenExpr(scope, tyarr->sizes[i], builder), CurStride);
-            }
-            // int *arr = load int **arr_stackslot
-            Value *Array = builder.CreateLoad(sv->symValue);
-            // int *arr_at_ix = arr + index
-            Value *Access = builder.CreateGEP(Array, CurIx);
-            return builder.CreateLoad(Access);
+        Value *CurStride = builder.getInt32(1);
+        Value *CurIx = builder.getInt32(0);
+        for (int i = 0; i < larr->indeces.size(); ++i) {
+            CurIx = builder.CreateAdd(
+                CurIx,
+                builder.CreateMul(codegenExpr(scope, larr->indeces[i], builder),
+                                  CurStride));
+            // TODO: this is kludgy. Let's not have symArrSizes. We can
+            // regenerate this info when we want it.
+            // CurStride = builder.CreateMul(sv->symArrSizes[i],
+            // CurStride);
+            CurStride = builder.CreateMul(
+                codegenExpr(scope, tyarr->sizes[i], builder), CurStride);
         }
-
-        cerr << "unknown LVal: ";
-        lval->print(cerr);
-        assert(false && "unknown LVal");
-        return nullptr;
+        // int *arr = load int **arr_stackslot
+        Value *Array = builder.CreateLoad(sv->symValue);
+        // int *arr_at_ix = arr + index
+        Value *Access = builder.CreateGEP(Array, CurIx);
+        return builder.CreateLoad(Access);
     }
 
     llvm::Value *codegenExpr(SymTable &scope, Expr *e, Builder builder) {
@@ -433,6 +402,35 @@ struct Codegen {
             return builder.CreateGlobalString(s->s.c_str());
         } else if (ExprLVal *lvale = dynamic_cast<ExprLVal *>(e)) {
             return codegenLValUse(scope, lvale->lval, builder);
+        } else if (ExprFnCall *fncall = dynamic_cast<ExprFnCall *>(e)) {
+            if (fncall->fnname == "print") {
+                for (Expr *it : fncall->params) {
+                    // TODO: we should use types to figure this out.
+                    Value *Arg = codegenExpr(scope, it, builder);
+                    if (Arg->getType()->isIntegerTy()) {
+                        Value *fn = scope.find("printInt64")->symValue;
+                        Arg = builder.CreateSExtOrTrunc(Arg,
+                                                        builder.getInt64Ty());
+                        builder.CreateCall(fn, {Arg});
+                    }
+                }  // end arguments loop
+                return nullptr;
+            }  // end fn == print
+            SymValue *fnsv = scope.find(fncall->fnname);
+            if (fnsv == nullptr) {
+                errs() << "unable to find function: [" << fncall->fnname
+                       << "]\n";
+            }
+            assert(fnsv != nullptr);
+
+            llvm::SmallVector<llvm::Value *, 4> args;
+            for (int i = 0; i < fncall->params.size(); ++i) {
+                args.push_back(codegenExpr(scope, fncall->params[i], builder));
+            }
+
+            assert(fnsv->symValue != nullptr);
+            return builder.CreateCall(fnsv->symValue, args);
+
         } else if (ExprBinop *eb = dynamic_cast<ExprBinop *>(e)) {
             Value *l = codegenExpr(scope, eb->l, builder);
             Value *r = codegenExpr(scope, eb->r, builder);
@@ -515,7 +513,7 @@ struct Codegen {
             // we can have g = ...
             // where g is an array!
             if (LValIdent *lid = dynamic_cast<LValIdent *>(s->lval)) {
-                SymValue *sv = scope.find(lid->s);
+                SymValue *sv = scope.find(lid->name);
                 assert(sv != nullptr);
 
                 // g : char[10]
@@ -556,7 +554,7 @@ struct Codegen {
                 assert(false && "unreachable");
             } else {
                 LValArray *larr = static_cast<LValArray *>(s->lval);
-                const std::string arrname = larr->s;
+                const std::string arrname = larr->name;
                 const SymValue *sv = scope.find(arrname);
                 assert(sv != nullptr);
                 // get the type of the array so we can access the dimension

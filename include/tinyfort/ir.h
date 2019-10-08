@@ -123,22 +123,22 @@ class LVal {
 
 class LValIdent : public LVal {
    public:
-    std::string s;
-    LValIdent(std::string s) : s(s){};
+    std::string name;
+    LValIdent(std::string name) : name(name){};
 
     Type *getType() const { assert(false && "unimplemented"); }
 
-    void print(std::ostream &o, int depth = 0) { o << s; }
+    void print(std::ostream &o, int depth = 0) { o << name; }
 };
 
 class LValArray : public LVal {
    public:
-    std::string s;
+    std::string name;
     std::vector<Expr *> indeces;
-    LValArray(std::string s, std::vector<Expr *> indeces)
-        : s(s), indeces(indeces){};
+    LValArray(std::string name, std::vector<Expr *> indeces)
+        : name(name), indeces(indeces){};
     void print(std::ostream &o, int depth = 0) {
-        o << s;
+        o << name;
         o << "[";
         for (unsigned i = 0; i < indeces.size(); ++i) {
             indeces[i]->print(o, depth);
@@ -221,6 +221,28 @@ class ExprLVal : public Expr {
     LVal *lval;
     ExprLVal(LVal *lval) : lval(lval){};
     void print(std::ostream &o, int depth = 0) { lval->print(o, depth); }
+
+    Type *getType() const { assert(false && "unimplemented"); }
+};
+
+class ExprFnCall : public Expr {
+   public:
+    std::string fnname;
+    std::vector<Expr *> params;
+
+    ExprFnCall(std::string fnname) : fnname(fnname), params({}){};
+
+    ExprFnCall(std::string fnname, std::vector<Expr *> params)
+        : fnname(fnname), params(params){};
+
+    void print(std::ostream &o, int depth = 0) {
+        o << fnname << "(";
+        for (unsigned i = 0; i < params.size(); ++i) {
+            params[i]->print(o, depth);
+            if (i < params.size() - 1) o << ", ";
+        }
+        o << ")";
+    }
 
     Type *getType() const { assert(false && "unimplemented"); }
 };

@@ -102,6 +102,7 @@ std::vector<tf::FnDefn *> g_fndefns;
 %type <expr>	expr;
 %type <expr>	expr2;
 %type <expr>	expr3;
+%type <expr>	fncall;
 %type <expr>	expr4;
 %type <exprtuple> exprtuple_;
 %type <exprtuple> exprtuple;
@@ -158,6 +159,12 @@ expr3:
   | expr4 { $$ = $1; }
 
 
+fncall : IDENTIFIER OPENPAREN CLOSEPAREN {
+       $$ = new tf::ExprFnCall(*$IDENTIFIER);
+       }
+ | IDENTIFIER OPENPAREN exprtuple_ CLOSEPAREN {
+       $$ = new tf::ExprFnCall(*$IDENTIFIER, *$exprtuple_);
+  }
 
 // root literals
 expr4: 
@@ -166,6 +173,7 @@ expr4:
      | STRING { $$ = new tf::ExprString(*$STRING); }
      | lval { $$ = new tf::ExprLVal($1); }
      | CHAR { $$ = new tf::ExprChar(*$CHAR); }
+     | fncall { $$ = $1; }
 
 exprtuple_: 
   exprtuple_ COMMA expr  { $$ = $1; $$->push_back($3); }
