@@ -1,8 +1,8 @@
-def fib(i: int): int {
+def fact(i: int): int {
   if i == 0 {
     return 1;
   }
-  return i * fib[i -1];
+  return i * fact[i -1];
 }
 
 def foo(n: int): int {
@@ -33,8 +33,8 @@ def main(i:int) : int {
    y : int[10];
    z: int[3, 4];
    s: int;
-   x = 1;
-   print[x+1];
+
+   print[fact[5]];
 
    while x == 0 {
        x = x + 1;

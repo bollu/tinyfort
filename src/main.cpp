@@ -465,6 +465,12 @@ struct Codegen {
                                   llvm::BasicBlock *entry, Builder builder) {
         builder.SetInsertPoint(entry);
 
+        if (StmtLetSet *letset = dynamic_cast<StmtLetSet *>(stmt)) {
+            StmtLet let = StmtLet(letset->name, letset->ty);
+            entry = codegenStmt(scope, &let, entry, builder);
+            StmtSet set = StmtSet(new LValIdent(letset->name), letset->rhs);
+            return codegenStmt(scope, &set, entry, builder);
+        }
         if (StmtLet *let = dynamic_cast<StmtLet *>(stmt)) {
             llvm::Type *ty = getLLVMType(let->ty);
             llvm::Value *V = builder.CreateAlloca(ty);

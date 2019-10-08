@@ -256,6 +256,23 @@ class StmtSet : public Stmt {
     }
 };
 
+class StmtLetSet : public Stmt {
+   public:
+    std::string name;
+    tf::Type *ty;
+    Expr *rhs;
+    StmtLetSet(std::string name, tf::Type *ty, Expr *rhs)
+        : name(name), ty(ty), rhs(rhs){};
+
+    void print(std::ostream &o, int depth = 0) {
+        o << "let " << name << " : ";
+        ty->print(o, depth);
+        o << " = ";
+        rhs->print(o, depth);
+        o << ";";
+    }
+};
+
 class StmtWhileLoop : public Stmt {
    public:
     Expr *cond;

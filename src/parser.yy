@@ -95,6 +95,9 @@ std::vector<tf::FnDefn *> g_fndefns;
 %type <block>	block;
 %type <stmt>	stmt;
 %type <stmt>	iftail;
+%type <stmt>	stmtletset;
+%type <stmt>	stmtlet;
+%type <stmt>	stmtset;
 %type <lval>	lval;
 %type <expr>	expr;
 %type <expr>	expr2;
@@ -198,19 +201,34 @@ basetype:
         $$ = new tf::TypeBase(tf::TypeBaseName::Char);
     }
 
-stmt: 
-    lval EQUALS expr SEMICOLON {
+stmtlet: IDENTIFIER COLON type {
+       $$ = new tf::StmtLet(*$1, $3);
+    }
+
+stmtset: lval EQUALS expr {
          $$ = new tf::StmtSet($1, $3);
+    }
+
+stmtletset: IDENTIFIER COLON type EQUALS expr {
+    $$ = new tf::StmtLetSet(*$IDENTIFIER, $type, $expr);
+  }
+
+stmt: stmtlet SEMICOLON {
+        $$ = $stmtlet;
+    } | stmtset SEMICOLON {
+        $$ = $stmtset;
+    } | stmtletset SEMICOLON {
+      $$ = $stmtletset;
     } | WHILE expr block {
          $$ = new tf::StmtWhileLoop($2, $3);
-    } | IDENTIFIER COLON type SEMICOLON {
-       $$ = new tf::StmtLet(*$1, $3);
-    } | expr SEMICOLON {
+    } |  expr SEMICOLON {
          $$ = new tf::StmtExpr($1);
     } | IF expr block iftail {
         $$ = new tf::StmtIf($expr, $block, $iftail);
     } | RETURN expr SEMICOLON {
         $$ = new tf::StmtReturn($expr);
+    } | FOR stmtletset SEMICOLON expr SEMICOLON stmtset {
+    // for (a : int = 1; a <= 10; a = a + 1)
     }
 
 iftail: 
