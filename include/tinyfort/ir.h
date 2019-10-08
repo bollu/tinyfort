@@ -28,6 +28,8 @@ enum Binop {
     BinopCmpEq,
     BinopCmpNeq,
     BinopAnd,
+    BinopLeftShift,
+    BinopBitwiseAnd,
 };
 void printBinop(std::ostream &o, tf::Binop bp);
 
@@ -193,9 +195,13 @@ class ExprBool : public Expr {
 
 class ExprString : public Expr {
    public:
+    // the raw string which includes the ""
+    std::string sraw;
     std::string s;
-    ExprString(std::string s) : s(s){};
-    void print(std::ostream &o, int depth = 0) { o << "str(" << s << ");"; }
+    ExprString(std::string sraw) : sraw(sraw){
+      s = std::string(sraw.begin()+1, sraw.end()-1);
+    };
+    void print(std::ostream &o, int depth = 0) { o << "str(" << sraw << ");"; }
 
     Type *getType() const { assert(false && "unimplemented"); }
 };

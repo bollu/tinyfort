@@ -85,6 +85,12 @@ void tf::printBinop(std::ostream &o, tf::Binop bp) {
         case tf::BinopAnd:
             o << "&&";
             return;
+        case tf::BinopBitwiseAnd:
+          o << "&";
+          return;
+        case tf::BinopLeftShift:
+          o << "<<";
+          return;
         default:
             assert(false && "unreachable");
     }
@@ -481,10 +487,14 @@ struct Codegen {
                     return builder.CreateAnd(l, r);
                 case Binop::BinopOr:
                     return builder.CreateOr(l, r);
-                case Binop::BinopCmpEq: {
-                    // this for some reason infinite loops.
-                    return builder.CreateICmpSLE(l, r);
-                }
+                case Binop::BinopCmpEq: 
+                    return builder.CreateICmpEQ(l, r);
+                case Binop::BinopCmpNeq: 
+                    return builder.CreateICmpNE(l, r);
+                 case Binop::BinopBitwiseAnd: 
+                    return builder.CreateAnd(l, r);
+                case Binop::BinopLeftShift: 
+                    return builder.CreateShl(l, r);
                 default:
                     cerr << "unknown binop: |" << eb->op << "|";
                     e->print(cerr);

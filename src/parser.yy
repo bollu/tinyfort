@@ -95,6 +95,8 @@ std::vector<tf::FnDefn *> g_fndefns;
 %token IMPORT;
 %token TRUE;
 %token FALSE;
+%token SHIFTL
+%token BITWISEAND;
 
 %start toplevel
 %type <block>	block;
@@ -156,20 +158,24 @@ expr2:
      expr3 LEQ expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopLeq, $3); }
      | expr3 LT expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopLt, $3); }
      | expr3 CMPEQ expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopCmpEq, $3); }
+     | expr3 CMPNEQ expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopCmpNeq, $3); }
      | expr3  { $$ = $1; }
 
-// low precedence arithmetic
+
+// low precedence arithmetic, low precence bitwise (&)
 expr3 : expr4 { $$ = $1;
      }
      | expr4 PLUS expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopAdd, $3); }
      | expr4 MINUS expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopSub, $3); }
      | expr4 MODULO expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopModulo, $3); }
+     | expr4 BITWISEAND expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopBitwiseAnd, $3); }
 
-// * , /
+// high precendence arithmetic (*, /), high precendence bitwise (<<)
 expr4: 
   expr5 STAR expr4 { $$ = new tf::ExprBinop($1, tf::Binop::BinopMul, $3); }
   | expr5 DIVIDE expr4 { $$ = new tf::ExprBinop($1, tf::Binop::BinopDiv, $3); }
-  | expr5 { $$ = $1; }
+  | expr5 SHIFTL expr4 { $$ = new tf::ExprBinop($1, tf::Binop::BinopLeftShift, $3); }
+| expr5 { $$ = $1; }
 
 
 

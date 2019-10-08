@@ -44,6 +44,8 @@ int compile_program(int argc, char **argv, tf::Program *p);
 ":"            return COLON;
 "->"           return THINARROW;
 "="            return EQUALS;
+"<<"           return SHIFTL;
+"&"            return BITWISEAND;
 "let"          return LET;
 "def"          return DEF;
 "+"          return PLUS;
