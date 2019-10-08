@@ -187,13 +187,31 @@ class ExprString : public Expr {
     void print(std::ostream &o, int depth = 0) { o << "str(" << s << ");"; }
 
     Type *getType() const { assert(false && "unimplemented"); }
-};  // namespace tf
+};
 
+// Collection of escape sequences:
+// https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences
 class ExprChar : public Expr {
    public:
+    std::string rawc;
     char c;
-    ExprChar(char c) : c(c){};
-    void print(std::ostream &o, int depth = 0) { o << "'" << c << "'"; }
+
+    ExprChar(std::string rawc) : rawc(rawc) {
+        // slice of the open and close single quotes
+        std::string stripped = std::string(rawc.begin() + 1, rawc.end() - 1);
+
+        if (stripped.size() == 1) {
+            c = stripped.c_str()[0];
+        } else if (stripped == "\\n") {
+            c = '\n';
+        } else {
+            fprintf(stderr, "incorrect character: |%s|\n", stripped.c_str());
+            assert(false &&
+                   "charater must be of length 1, or an escaped string of "
+                   "length 2");
+        }
+    }
+    void print(std::ostream &o, int depth = 0) { o << rawc; }
 
     Type *getType() const { assert(false && "unimplemented"); }
 };
@@ -281,6 +299,26 @@ class StmtWhileLoop : public Stmt {
     void print(std::ostream &o, int depth = 0) {
         o << "while ";
         cond->print(o, depth);
+        inner->print(o, depth);
+    }
+};
+
+class StmtForLoop : public Stmt {
+   public:
+    Stmt *init;
+    Expr *cond;
+    Stmt *after;
+    Block *inner;
+
+    StmtForLoop(Stmt *init, Expr *cond, Stmt *after, Block *inner)
+        : init(init), cond(cond), after(after), inner(inner){};
+
+    void print(std::ostream &o, int depth = 0) {
+        o << "for ";
+        init->print(o, depth);
+        cond->print(o, depth);
+        o << "; ";
+        after->print(o, depth);
         inner->print(o, depth);
     }
 };

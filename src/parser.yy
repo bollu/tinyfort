@@ -119,7 +119,7 @@ std::vector<tf::FnDefn *> g_fndefns;
 %token <i>	INTEGER;
 %token <str>	IDENTIFIER;
 %token <str>  STRING;
-%token <c>  CHAR;
+%token <str>  CHAR;
 %%
 toplevel:
         program { 
@@ -163,9 +163,9 @@ expr3:
 expr4: 
      OPENPAREN expr CLOSEPAREN { $$ = $2; }
      |  INTEGER { $$ = new tf::ExprInt($1); } 
-     | STRING { $$ = new tf::ExprString(*$1); }
+     | STRING { $$ = new tf::ExprString(*$STRING); }
      | lval { $$ = new tf::ExprLVal($1); }
-     | CHAR { $$ = new tf::ExprChar($1); }
+     | CHAR { $$ = new tf::ExprChar(*$CHAR); }
 
 exprtuple_: 
   exprtuple_ COMMA expr  { $$ = $1; $$->push_back($3); }
@@ -227,8 +227,8 @@ stmt: stmtlet SEMICOLON {
         $$ = new tf::StmtIf($expr, $block, $iftail);
     } | RETURN expr SEMICOLON {
         $$ = new tf::StmtReturn($expr);
-    } | FOR stmtletset SEMICOLON expr SEMICOLON stmtset {
-    // for (a : int = 1; a <= 10; a = a + 1)
+    } | FOR stmtletset SEMICOLON expr SEMICOLON stmtset block {
+        $$ = new tf::StmtForLoop($stmtletset, $expr, $stmtset, $block);
     }
 
 iftail: 

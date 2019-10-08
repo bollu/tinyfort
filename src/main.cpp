@@ -376,6 +376,9 @@ struct Codegen {
 
         if (LV->getType()->isPointerTy() &&
             LV->getType()->getPointerElementType()->isFunctionTy()) {
+            // TODO: need a notion of char[_],which is a pointer...
+            // alternatively, based on type, we need to infer that any send
+            // of an array should be a send-a-pointer.
             return builder.CreateCall(LV, args);
             // generate function call.
         } else {
@@ -617,6 +620,19 @@ struct Codegen {
             builder.CreateBr(condbb);
 
             return exitbb;
+        } else if (StmtForLoop *f = dynamic_cast<StmtForLoop *>(stmt)) {
+            // push a scope for the declaration of for loop variable
+            scope.pushScope();
+            entry = codegenStmt(scope, f->init, entry, builder);
+
+            Block innerWithAfter(f->inner->stmts);
+            innerWithAfter.stmts.push_back(f->after);
+            tf::StmtWhileLoop wh(f->cond, &innerWithAfter);
+            // now codegen the while loop.
+            BasicBlock *exit = codegenStmt(scope, &wh, entry, builder);
+            scope.popScope();
+            return exit;
+
         } else if (StmtIf *sif = dynamic_cast<StmtIf *>(stmt)) {
             BasicBlock *thenbb =
                 llvm::BasicBlock::Create(ctx, "if.then", entry->getParent());

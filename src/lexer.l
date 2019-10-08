@@ -31,7 +31,7 @@ int compile_program(int argc, char **argv, tf::Program *p);
 
 
 %%
-['].['] { yylval.c = yytext[1]; return CHAR; }
+['].*['] { yylval.str = new std::string(yytext); return CHAR; }
 ["].*?["] { yylval.str = new std::string(yytext); return STRING; }
 "("            return OPENPAREN; 
 ")"            return CLOSEPAREN;
