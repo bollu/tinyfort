@@ -49,12 +49,15 @@ int compile_program(int argc, char **argv, tf::Program *p);
 "+"          return PLUS;
 "-"          return MINUS;
 "*"          return STAR;
+"%"          return MODULO;
 "/"          return DIVIDE;
 "<"          return LT;
 "<="          return LEQ;
 "=="          return CMPEQ;
 "!="          return CMPNEQ;
 ">="          return GEQ;
+"&&"          return AND;
+"||"          return OR;
 "while"          return WHILE;
 "for"          return FOR;
 "if"          return IF;
@@ -68,6 +71,8 @@ int compile_program(int argc, char **argv, tf::Program *p);
 "void"          return VOIDTY;
 "return"          return RETURN;
 "import"         return IMPORT;
+"true"         return TRUE;
+"false"         return FALSE;
 
 [ \t]          ;
 

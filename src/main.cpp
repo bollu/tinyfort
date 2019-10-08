@@ -61,6 +61,9 @@ void tf::printBinop(std::ostream &o, tf::Binop bp) {
         case tf::BinopDiv:
             o << "/";
             return;
+        case tf::BinopModulo:
+            o << "%";
+            return;
         case tf::BinopOr:
             o << "||";
             return;
@@ -75,6 +78,9 @@ void tf::printBinop(std::ostream &o, tf::Binop bp) {
             return;
         case tf::BinopCmpNeq:
             o << "!=";
+            return;
+        case tf::BinopAnd:
+            o << "&&";
             return;
         default:
             assert(false && "unreachable");
@@ -411,6 +417,8 @@ struct Codegen {
     llvm::Value *codegenExpr(SymTable &scope, Expr *e, Builder builder) {
         if (ExprInt *i = dynamic_cast<ExprInt *>(e)) {
             return builder.getInt32(i->i);
+        } else if (ExprBool *b = dynamic_cast<ExprBool *>(e)) {
+            return builder.getInt1(b->b);
         } else if (ExprChar *c = dynamic_cast<ExprChar *>(e)) {
             return builder.getInt8(c->c);
         } else if (ExprString *s = dynamic_cast<ExprString *>(e)) {
@@ -460,8 +468,14 @@ struct Codegen {
                     return builder.CreateSub(l, r);
                 case Binop::BinopMul:
                     return builder.CreateMul(l, r);
+                case Binop::BinopModulo:
+                    return builder.CreateSRem(l, r);
                 case Binop::BinopLeq:
                     return builder.CreateICmpSLE(l, r);
+                case Binop::BinopAnd:
+                    return builder.CreateAnd(l, r);
+                case Binop::BinopOr:
+                    return builder.CreateOr(l, r);
                 case Binop::BinopCmpEq: {
                     // this for some reason infinite loops.
                     return builder.CreateICmpSLE(l, r);

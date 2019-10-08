@@ -69,12 +69,15 @@ std::vector<tf::FnDefn *> g_fndefns;
 %token MINUS
 %token STAR
 %token DIVIDE
+%token MODULO
 %token LT
 %token GT
 %token LEQ;
 %token CMPEQ;
 %token CMPNEQ;
 %token GEQ;
+%token AND;
+%token OR;
 %token IF;
 %token ELIF;
 %token ELSE;
@@ -90,6 +93,8 @@ std::vector<tf::FnDefn *> g_fndefns;
 %token RETURN;
 %token FILETY;
 %token IMPORT;
+%token TRUE;
+%token FALSE;
 
 %start toplevel
 %type <block>	block;
@@ -104,6 +109,7 @@ std::vector<tf::FnDefn *> g_fndefns;
 %type <expr>	expr3;
 %type <expr>	fncall;
 %type <expr>	expr4;
+%type <expr>	expr5;
 %type <exprtuple> exprtuple_;
 %type <exprtuple> exprtuple;
 %type <stmts>	stmts;
@@ -140,40 +146,49 @@ block: OPENFLOWER CLOSEFLOWER { $$ = new tf::Block({}); }
          $$ = new tf::Block(*$2);
      }
 
-expr: 
-     expr2 LEQ expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopLeq, $3); }
-     | expr2 CMPEQ expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopCmpEq, $3); }
-     | expr2  { $$ = $1; }
+// logical
+expr: expr2 AND expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopAnd, $3); }
+     | expr2 OR expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopOr, $3); }
+     | expr2 { $$ = $1; }
 
 // relational
-expr2 : expr3 {
-     $$ = $1;
+expr2: 
+     expr3 LEQ expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopLeq, $3); }
+     | expr3 CMPEQ expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopCmpEq, $3); }
+     | expr3  { $$ = $1; }
+
+// low precedence arithmetic
+expr3 : expr4 { $$ = $1;
      }
-     | expr3 PLUS expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopAdd, $3); }
-     | expr3 MINUS expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopSub, $3); }
+     | expr4 PLUS expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopAdd, $3); }
+     | expr4 MINUS expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopSub, $3); }
+     | expr4 MODULO expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopModulo, $3); }
 
 // * , /
-expr3: 
-  expr4 STAR expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopMul, $3); }
-  | expr4 DIVIDE expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopDiv, $3); }
-  | expr4 { $$ = $1; }
+expr4: 
+  expr5 STAR expr4 { $$ = new tf::ExprBinop($1, tf::Binop::BinopMul, $3); }
+  | expr5 DIVIDE expr4 { $$ = new tf::ExprBinop($1, tf::Binop::BinopDiv, $3); }
+  | expr5 { $$ = $1; }
 
 
-fncall : IDENTIFIER OPENPAREN CLOSEPAREN {
-       $$ = new tf::ExprFnCall(*$IDENTIFIER);
-       }
- | IDENTIFIER OPENPAREN exprtuple_ CLOSEPAREN {
-       $$ = new tf::ExprFnCall(*$IDENTIFIER, *$exprtuple_);
-  }
 
 // root literals
-expr4: 
+expr5: 
      OPENPAREN expr CLOSEPAREN { $$ = $2; }
      |  INTEGER { $$ = new tf::ExprInt($1); } 
      | STRING { $$ = new tf::ExprString(*$STRING); }
      | lval { $$ = new tf::ExprLVal($1); }
      | CHAR { $$ = new tf::ExprChar(*$CHAR); }
+     | TRUE { $$ = new tf::ExprBool(true); }
+     | FALSE { $$ = new tf::ExprBool(false); }
      | fncall { $$ = $1; }
+
+// function calls
+fncall : IDENTIFIER OPENPAREN CLOSEPAREN {
+       $$ = new tf::ExprFnCall(*$IDENTIFIER);
+       } | IDENTIFIER OPENPAREN exprtuple_ CLOSEPAREN {
+       $$ = new tf::ExprFnCall(*$IDENTIFIER, *$exprtuple_);
+     }
 
 exprtuple_: 
   exprtuple_ COMMA expr  { $$ = $1; $$->push_back($3); }
@@ -207,6 +222,8 @@ basetype:
         $$ = new tf::TypeBase(tf::TypeBaseName::File);
     } | CHARTY {
         $$ = new tf::TypeBase(tf::TypeBaseName::Char);
+    } | BOOLTY {
+        $$ = new tf::TypeBase(tf::TypeBaseName::Bool);
     }
 
 stmtlet: IDENTIFIER COLON type {

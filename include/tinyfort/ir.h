@@ -19,13 +19,15 @@ enum Binop {
     BinopSub,
     BinopMul,
     BinopDiv,
+    BinopModulo,
     BinopOr,
     BinopLt,
     BinopLeq,
     BinopGt,
     BinopGeq,
     BinopCmpEq,
-    BinopCmpNeq
+    BinopCmpNeq,
+    BinopAnd,
 };
 void printBinop(std::ostream &o, tf::Binop bp);
 
@@ -176,6 +178,15 @@ class ExprInt : public Expr {
     int i;
     ExprInt(int i) : i(i){};
     void print(std::ostream &o, int depth = 0) { o << i; }
+
+    Type *getType() const { assert(false && "unimplemented"); }
+};
+
+class ExprBool : public Expr {
+   public:
+    bool b;
+    ExprBool(bool b) : b(b){};
+    void print(std::ostream &o, int depth = 0) { o << (b ? "true" : "false"); }
 
     Type *getType() const { assert(false && "unimplemented"); }
 };
