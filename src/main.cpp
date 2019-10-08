@@ -67,11 +67,14 @@ void tf::printBinop(std::ostream &o, tf::Binop bp) {
         case tf::BinopOr:
             o << "||";
             return;
-        case tf::BinopLeq:
-            o << "<=";
-            return;
         case tf::BinopLt:
             o << "<";
+            return;
+        case tf::BinopGt:
+            o << ">";
+            return;
+        case tf::BinopLeq:
+            o << "<=";
             return;
         case tf::BinopGeq:
             o << ">=";
@@ -471,18 +474,23 @@ struct Codegen {
                     return builder.CreateSub(l, r);
                 case Binop::BinopMul:
                     return builder.CreateMul(l, r);
+                case Binop::BinopDiv:
+                    return builder.CreateSDiv(l, r);
                 case Binop::BinopModulo:
                     return builder.CreateSRem(l, r);
                 case Binop::BinopLeq:
                     return builder.CreateICmpSLE(l, r);
                 case Binop::BinopLt:
                     return builder.CreateICmpSLT(l, r);
+                case Binop::BinopGt:
+                    return builder.CreateICmpSGT(l, r);
+                case Binop::BinopGeq:
+                    return builder.CreateICmpSGE(l, r);
                 case Binop::BinopAnd:
                     return builder.CreateAnd(l, r);
                 case Binop::BinopOr:
                     return builder.CreateOr(l, r);
                 case Binop::BinopCmpEq: {
-                    // this for some reason infinite loops.
                     return builder.CreateICmpEQ(l, r);
                 }
                 default:

@@ -155,6 +155,8 @@ expr: expr2 AND expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopAnd, $3); }
 expr2: 
      expr3 LEQ expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopLeq, $3); }
      | expr3 LT expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopLt, $3); }
+     | expr3 GT expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopGt, $3); }
+     | expr3 GEQ expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopGeq, $3); }
      | expr3 CMPEQ expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopCmpEq, $3); }
      | expr3  { $$ = $1; }
 
