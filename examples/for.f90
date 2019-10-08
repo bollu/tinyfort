@@ -1,5 +1,5 @@
 import fputc(c: char, f: FILE): void
-#  import fputs(s: char[100], f: FILE): void
+import fputs(s: char[100], f: FILE): void
 import stdout: FILE
 def main(i:int) : int {
     for i : int = 0; i <= 10; i = i + 1 {

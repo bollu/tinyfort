@@ -339,8 +339,17 @@ struct Codegen {
             assert(sv != nullptr);
             Value *V = sv->symValue;
             assert(V != nullptr);
-            errs() << __FUNCTION__ << " v: " << *V << "\n";
-            return builder.CreateLoad(V);
+            Value *LoadedV = builder.CreateLoad(V);
+            // we have g : char[100]
+            // puts(g);
+            // so we cast to pointer
+            if (LoadedV->getType()->isArrayTy()) {
+                return builder.CreateBitOrPointerCast(
+                    LoadedV,
+                    LoadedV->getType()->getArrayElementType()->getPointerTo());
+            } else {
+                return LoadedV;
+            }
         }
 
         const LValArray *arr = dynamic_cast<LValArray *>(lval);
@@ -399,7 +408,9 @@ struct Codegen {
         } else if (ExprChar *c = dynamic_cast<ExprChar *>(e)) {
             return builder.getInt8(c->c);
         } else if (ExprString *s = dynamic_cast<ExprString *>(e)) {
-            return builder.CreateGlobalString(s->s.c_str());
+            return builder.CreateBitCast(
+                builder.CreateGlobalString(s->s.c_str()),
+                builder.getInt8PtrTy());
         } else if (ExprLVal *lvale = dynamic_cast<ExprLVal *>(e)) {
             return codegenLValUse(scope, lvale->lval, builder);
         } else if (ExprFnCall *fncall = dynamic_cast<ExprFnCall *>(e)) {
@@ -411,6 +422,7 @@ struct Codegen {
                         Value *fn = scope.find("printInt64")->symValue;
                         Arg = builder.CreateSExtOrTrunc(Arg,
                                                         builder.getInt64Ty());
+
                         builder.CreateCall(fn, {Arg});
                     }
                 }  // end arguments loop
