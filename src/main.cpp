@@ -483,7 +483,7 @@ struct Codegen {
                     return builder.CreateOr(l, r);
                 case Binop::BinopCmpEq: {
                     // this for some reason infinite loops.
-                    return builder.CreateICmpSLE(l, r);
+                    return builder.CreateICmpEQ(l, r);
                 }
                 default:
                     cerr << "unknown binop: |" << eb->op << "|";
