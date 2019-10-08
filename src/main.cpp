@@ -584,6 +584,8 @@ struct Codegen {
                 return entry;
             }
         } else if (StmtWhileLoop *wh = dynamic_cast<StmtWhileLoop *>(stmt)) {
+            scope.pushScope();
+
             BasicBlock *condbb =
                 llvm::BasicBlock::Create(ctx, "while.cond", entry->getParent());
             BasicBlock *bodybb =
@@ -599,8 +601,12 @@ struct Codegen {
             if (!bodybb->getTerminator())
                 builder.CreateCondBr(cond, bodybb, exitbb);
 
+            // push a scope for the body of the while.
+            scope.pushScope();
             BasicBlock *blockbb =
                 codegenBlock(scope, wh->inner, bodybb, builder);
+            scope.popScope();
+
             builder.SetInsertPoint(blockbb);
             builder.CreateBr(condbb);
 
@@ -617,7 +623,11 @@ struct Codegen {
             Value *cond = codegenExpr(scope, sif->cond, builder);
             builder.CreateCondBr(cond, thenbb, elsebb);
 
+            // push a scope for the then block.
+            scope.pushScope();
             thenbb = codegenBlock(scope, sif->inner, thenbb, builder);
+            scope.popScope();
+
             if (!thenbb->getTerminator()) {
                 builder.SetInsertPoint(thenbb);
                 builder.CreateBr(joinbb);
@@ -626,7 +636,11 @@ struct Codegen {
             // TODO: check if we have a terminator, and eliminate everything
             // after a terminator.
             if (sif->tail) {
+                // push a scope for the else branch.
+                scope.pushScope();
                 elsebb = codegenStmt(scope, sif->tail, elsebb, builder);
+                scope.popScope();
+
                 if (!elsebb->getTerminator()) {
                     builder.SetInsertPoint(elsebb);
                     builder.CreateBr(joinbb);
