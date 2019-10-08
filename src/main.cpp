@@ -192,6 +192,14 @@ Value *getOrInsertPrintInt64(llvm::Module &mod, Builder builder) {
     return c;
 }
 
+Value *getOrInsertPrintString(llvm::Module &mod, Builder builder) {
+    FunctionType *fty =
+        FunctionType::get(builder.getVoidTy(), builder.getInt64Ty());
+    Constant *c = mod.getOrInsertFunction("printstring", fty, {});
+    return c;
+}
+
+
 Value *getOrInsertFputc(llvm::Module &mod, Builder builder) {
     FunctionType *fty = FunctionType::get(
         builder.getVoidTy(),
@@ -308,7 +316,7 @@ struct Codegen {
     llvm::Type *getBaseLLVMType(const tf::TypeBaseName base) {
         switch (base) {
             case TypeBaseName::Int:
-                return llvm::Type::getInt32Ty(ctx);
+                return llvm::Type::getInt64Ty(ctx);
             case TypeBaseName::Float:
                 return llvm::Type::getFloatTy(ctx);
             case TypeBaseName::Bool:
@@ -399,8 +407,8 @@ struct Codegen {
                "array indexed with different number of indeces than "
                "declaration");
 
-        Value *CurStride = builder.getInt32(1);
-        Value *CurIx = builder.getInt32(0);
+        Value *CurStride = builder.getInt64(1);
+        Value *CurIx = builder.getInt64(0);
         for (int i = 0; i < larr->indeces.size(); ++i) {
             CurIx = builder.CreateAdd(
                 CurIx,
@@ -422,13 +430,13 @@ struct Codegen {
 
     llvm::Value *codegenExpr(SymTable &scope, Expr *e, Builder builder) {
         if (ExprInt *i = dynamic_cast<ExprInt *>(e)) {
-            return builder.getInt32(i->i);
+            return builder.getInt64(i->i);
         } else if (ExprBool *b = dynamic_cast<ExprBool *>(e)) {
             return builder.getInt1(b->b);
         } else if (ExprChar *c = dynamic_cast<ExprChar *>(e)) {
             return builder.getInt8(c->c);
         } else if (ExprString *s = dynamic_cast<ExprString *>(e)) {
-            return builder.CreateBitCast(
+            return builder.CreateBitOrPointerCast(
                 builder.CreateGlobalString(s->s.c_str()),
                 builder.getInt8PtrTy());
         } else if (ExprLVal *lvale = dynamic_cast<ExprLVal *>(e)) {
@@ -490,9 +498,10 @@ struct Codegen {
                     return builder.CreateAnd(l, r);
                 case Binop::BinopOr:
                     return builder.CreateOr(l, r);
-                case Binop::BinopCmpEq: {
+                case Binop::BinopCmpEq: 
                     return builder.CreateICmpEQ(l, r);
-                }
+                case Binop::BinopCmpNeq: 
+                    return builder.CreateICmpNE(l, r);
                 default:
                     cerr << "unknown binop: |" << eb->op << "|";
                     e->print(cerr);
@@ -522,8 +531,9 @@ struct Codegen {
             llvm::Value *V = builder.CreateAlloca(ty);
             V->setName(let->name);
             // we need to codegen a malloc
-            if (ty->isPointerTy()) {
-                tf::TypeArray *arrty = static_cast<tf::TypeArray *>(let->ty);
+            if (tf::TypeArray *arrty = dynamic_cast<tf::TypeArray *>(let->ty)) {
+                assert(arrty != nullptr && "incorrect array type");
+
 
                 std::vector<Value *> Sizes;
                 for (auto it : arrty->sizes) {
@@ -535,7 +545,7 @@ struct Codegen {
                 // compute array size
                 // start by assuming 8 bytes, and then multiply with all the
                 // sizes
-                Value *Size = builder.getInt32(8);
+                Value *Size = builder.getInt64(8);
                 for (Value *Dimsize : Sizes) {
                     Size = builder.CreateMul(Size, Dimsize);
                 }
@@ -575,7 +585,7 @@ struct Codegen {
                     // size = elemsize * [index sizes]
                     const int elemsize = mod.getDataLayout().getTypeStoreSize(
                         getBaseLLVMType(ta->t));
-                    Value *Size = builder.getInt32(elemsize);
+                    Value *Size = builder.getInt64(elemsize);
                     for (int i = 0; i < ta->sizes.size(); ++i) {
                         Size = builder.CreateMul(
                             Size, codegenExpr(scope, ta->sizes[i], builder));
@@ -611,8 +621,8 @@ struct Codegen {
                        "array indexed with different number of indeces than "
                        "declaration");
 
-                Value *CurStride = builder.getInt32(1);
-                Value *CurIx = builder.getInt32(0);
+                Value *CurStride = builder.getInt64(1);
+                Value *CurIx = builder.getInt64(0);
                 for (int i = 0; i < larr->indeces.size(); ++i) {
                     CurIx = builder.CreateAdd(
                         CurIx,

@@ -193,9 +193,12 @@ class ExprBool : public Expr {
 
 class ExprString : public Expr {
    public:
+    std::string sraw;
     std::string s;
-    ExprString(std::string s) : s(s){};
-    void print(std::ostream &o, int depth = 0) { o << "str(" << s << ");"; }
+    ExprString(std::string sraw) : sraw(sraw){
+        s = std::string(sraw.begin() + 1, sraw.end() - 1);
+    };
+    void print(std::ostream &o, int depth = 0) { o <<sraw; }
 
     Type *getType() const { assert(false && "unimplemented"); }
 };
@@ -215,6 +218,9 @@ class ExprChar : public Expr {
             c = stripped.c_str()[0];
         } else if (stripped == "\\n") {
             c = '\n';
+            
+        } else if (stripped == "\\0") {
+            c = '\0';
         } else {
             fprintf(stderr, "incorrect character: |%s|\n", stripped.c_str());
             assert(false &&
