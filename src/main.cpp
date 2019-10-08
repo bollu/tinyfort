@@ -70,6 +70,9 @@ void tf::printBinop(std::ostream &o, tf::Binop bp) {
         case tf::BinopLeq:
             o << "<=";
             return;
+        case tf::BinopLt:
+            o << "<";
+            return;
         case tf::BinopGeq:
             o << ">=";
             return;
@@ -472,6 +475,8 @@ struct Codegen {
                     return builder.CreateSRem(l, r);
                 case Binop::BinopLeq:
                     return builder.CreateICmpSLE(l, r);
+                case Binop::BinopLt:
+                    return builder.CreateICmpSLT(l, r);
                 case Binop::BinopAnd:
                     return builder.CreateAnd(l, r);
                 case Binop::BinopOr:
