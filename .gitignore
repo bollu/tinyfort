@@ -67,3 +67,5 @@ tags
 # haskell
 *.hi
 *.o
+
+*.sublime-*

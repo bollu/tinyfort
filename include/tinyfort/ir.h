@@ -195,13 +195,12 @@ class ExprBool : public Expr {
 
 class ExprString : public Expr {
    public:
-    // the raw string which includes the ""
     std::string sraw;
     std::string s;
-    ExprString(std::string sraw) : sraw(sraw){
-      s = std::string(sraw.begin()+1, sraw.end()-1);
+    ExprString(std::string sraw) : sraw(sraw) {
+        s = std::string(sraw.begin() + 1, sraw.end() - 1);
     };
-    void print(std::ostream &o, int depth = 0) { o << "str(" << sraw << ");"; }
+    void print(std::ostream &o, int depth = 0) { o << sraw; }
 
     Type *getType() const { assert(false && "unimplemented"); }
 };
@@ -221,6 +220,9 @@ class ExprChar : public Expr {
             c = stripped.c_str()[0];
         } else if (stripped == "\\n") {
             c = '\n';
+            
+        } else if (stripped == "\\0") {
+            c = '\0';
         } else {
             fprintf(stderr, "incorrect character: |%s|\n", stripped.c_str());
             assert(false &&
@@ -263,6 +265,37 @@ class ExprFnCall : public Expr {
 
     Type *getType() const { assert(false && "unimplemented"); }
 };
+
+ class ExprCast: public Expr {
+ public:
+     Expr *e;
+     Type *castty;
+
+     ExprCast(Expr *e, Type *castty): e(e), castty(castty) {};
+
+     void print(std::ostream &o, int depth = 0) {
+         castty->print(o);
+         o << "(";
+         e->print(o);
+         o << ")";
+
+     }
+     
+     Type *getType() const  { assert (false && "unimplemented"); }
+ };
+
+ class ExprNegate : public Expr {
+ public:
+     Expr *e;
+     ExprNegate (Expr *e): e(e) {};
+     void print(std::ostream &o, int depth = 0) {
+         o << "(- ";
+         e->print(o);
+         o << ")";
+     }
+     Type *getType() const  { assert (false && "unimplemented"); }
+
+ };
 
 class Stmt {
    public:

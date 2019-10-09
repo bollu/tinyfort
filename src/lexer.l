@@ -31,7 +31,8 @@ int compile_program(int argc, char **argv, tf::Program *p);
 
 
 %%
-['].*['] { yylval.str = new std::string(yytext); return CHAR; }
+['].['] { yylval.str = new std::string(yytext); return CHAR; }
+[']..['] { yylval.str = new std::string(yytext); return CHAR; }
 ["].*?["] { yylval.str = new std::string(yytext); return STRING; }
 "("            return OPENPAREN; 
 ")"            return CLOSEPAREN;
@@ -54,9 +55,10 @@ int compile_program(int argc, char **argv, tf::Program *p);
 "%"          return MODULO;
 "/"          return DIVIDE;
 "<"          return LT;
-"<="          return LEQ;
+">"          return GT;
 "=="          return CMPEQ;
 "!="          return CMPNEQ;
+"<="          return LEQ;
 ">="          return GEQ;
 "&&"          return AND;
 "||"          return OR;
@@ -75,6 +77,7 @@ int compile_program(int argc, char **argv, tf::Program *p);
 "import"         return IMPORT;
 "true"         return TRUE;
 "false"         return FALSE;
+"as"           return AS;
 
 [ \t]          ;
 

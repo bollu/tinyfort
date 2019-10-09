@@ -67,11 +67,14 @@ void tf::printBinop(std::ostream &o, tf::Binop bp) {
         case tf::BinopOr:
             o << "||";
             return;
-        case tf::BinopLeq:
-            o << "<=";
-            return;
         case tf::BinopLt:
             o << "<";
+            return;
+        case tf::BinopGt:
+            o << ">";
+            return;
+        case tf::BinopLeq:
+            o << "<=";
             return;
         case tf::BinopGeq:
             o << ">=";
@@ -195,6 +198,14 @@ Value *getOrInsertPrintInt64(llvm::Module &mod, Builder builder) {
     return c;
 }
 
+Value *getOrInsertPrintString(llvm::Module &mod, Builder builder) {
+    FunctionType *fty =
+        FunctionType::get(builder.getVoidTy(), builder.getInt64Ty());
+    Constant *c = mod.getOrInsertFunction("printstring", fty, {});
+    return c;
+}
+
+
 Value *getOrInsertFputc(llvm::Module &mod, Builder builder) {
     FunctionType *fty = FunctionType::get(
         builder.getVoidTy(),
@@ -311,7 +322,7 @@ struct Codegen {
     llvm::Type *getBaseLLVMType(const tf::TypeBaseName base) {
         switch (base) {
             case TypeBaseName::Int:
-                return llvm::Type::getInt32Ty(ctx);
+                return llvm::Type::getInt64Ty(ctx);
             case TypeBaseName::Float:
                 return llvm::Type::getFloatTy(ctx);
             case TypeBaseName::Bool:
@@ -372,7 +383,7 @@ struct Codegen {
                 return LoadedV;
             }
         }
-
+        // TODO: cleanup this godforsaken mess of code
         const LValArray *arr = dynamic_cast<LValArray *>(lval);
         assert(arr != nullptr);
 
@@ -391,7 +402,7 @@ struct Codegen {
 
         // generate array index
         assert(LV->getType()->isPointerTy());
-        LValArray *larr = static_cast<LValArray *>(lval);
+        LValArray *larr = dynamic_cast<LValArray *>(lval);
         assert(sv != nullptr);
         // get the type of the array so we can access the dimension
         // sizes.
@@ -402,19 +413,19 @@ struct Codegen {
                "array indexed with different number of indeces than "
                "declaration");
 
-        Value *CurStride = builder.getInt32(1);
-        Value *CurIx = builder.getInt32(0);
+        Value *CurStride = builder.getInt64(1);
+        Value *CurIx = builder.getInt64(0);
         for (int i = 0; i < larr->indeces.size(); ++i) {
-            CurIx = builder.CreateAdd(
-                CurIx,
-                builder.CreateMul(codegenExpr(scope, larr->indeces[i], builder),
-                                  CurStride));
+            Value *Size = builder.CreateSExt(codegenExpr(scope, tyarr->sizes[i], builder),
+                                            builder.getInt64Ty());
+            Value *Index = builder.CreateSExt(codegenExpr(scope, larr->indeces[i], builder),
+                                            builder.getInt64Ty());
+            CurIx = builder.CreateAdd(CurIx, builder.CreateMul(Index, CurStride));
             // TODO: this is kludgy. Let's not have symArrSizes. We can
             // regenerate this info when we want it.
             // CurStride = builder.CreateMul(sv->symArrSizes[i],
             // CurStride);
-            CurStride = builder.CreateMul(
-                codegenExpr(scope, tyarr->sizes[i], builder), CurStride);
+            CurStride = builder.CreateMul(Size, CurStride);
         }
         // int *arr = load int **arr_stackslot
         Value *Array = builder.CreateLoad(sv->symValue);
@@ -425,13 +436,13 @@ struct Codegen {
 
     llvm::Value *codegenExpr(SymTable &scope, Expr *e, Builder builder) {
         if (ExprInt *i = dynamic_cast<ExprInt *>(e)) {
-            return builder.getInt32(i->i);
+            return builder.getInt64(i->i);
         } else if (ExprBool *b = dynamic_cast<ExprBool *>(e)) {
             return builder.getInt1(b->b);
         } else if (ExprChar *c = dynamic_cast<ExprChar *>(e)) {
             return builder.getInt8(c->c);
         } else if (ExprString *s = dynamic_cast<ExprString *>(e)) {
-            return builder.CreateBitCast(
+            return builder.CreateBitOrPointerCast(
                 builder.CreateGlobalString(s->s.c_str()),
                 builder.getInt8PtrTy());
         } else if (ExprLVal *lvale = dynamic_cast<ExprLVal *>(e)) {
@@ -477,12 +488,18 @@ struct Codegen {
                     return builder.CreateSub(l, r);
                 case Binop::BinopMul:
                     return builder.CreateMul(l, r);
+                case Binop::BinopDiv:
+                    return builder.CreateSDiv(l, r);
                 case Binop::BinopModulo:
                     return builder.CreateSRem(l, r);
                 case Binop::BinopLeq:
                     return builder.CreateICmpSLE(l, r);
                 case Binop::BinopLt:
                     return builder.CreateICmpSLT(l, r);
+                case Binop::BinopGt:
+                    return builder.CreateICmpSGT(l, r);
+                case Binop::BinopGeq:
+                    return builder.CreateICmpSGE(l, r);
                 case Binop::BinopAnd:
                     return builder.CreateAnd(l, r);
                 case Binop::BinopOr:
@@ -500,6 +517,19 @@ struct Codegen {
                     e->print(cerr);
                     assert(false && "uknown binop");
             }
+        } else if (ExprCast *c = dynamic_cast<ExprCast *>(e)) {
+            Value *tocast = codegenExpr(scope, c->e, builder);
+            llvm::Type *castty = getLLVMType(c->castty);
+
+            llvm::Instruction::CastOps castop =
+                llvm::CastInst::getCastOpcode(tocast,
+                                             /*isSigned=*/true,
+                                             castty,
+                                             /*isSigned=*/true);
+            assert(llvm::CastInst::castIsValid(castop, tocast, castty) && "invalid cast");
+            return builder.CreateCast(castop, tocast, castty);
+        } else if (ExprNegate *en = dynamic_cast<ExprNegate *>(e)) {
+            return builder.CreateNeg(codegenExpr(scope, en->e, builder));
         }
 
         cerr << "unable to codegen expression:\n[";
@@ -524,8 +554,9 @@ struct Codegen {
             llvm::Value *V = builder.CreateAlloca(ty);
             V->setName(let->name);
             // we need to codegen a malloc
-            if (ty->isPointerTy()) {
-                tf::TypeArray *arrty = static_cast<tf::TypeArray *>(let->ty);
+            if (tf::TypeArray *arrty = dynamic_cast<tf::TypeArray *>(let->ty)) {
+                assert(arrty != nullptr && "incorrect array type");
+
 
                 std::vector<Value *> Sizes;
                 for (auto it : arrty->sizes) {
@@ -537,7 +568,7 @@ struct Codegen {
                 // compute array size
                 // start by assuming 8 bytes, and then multiply with all the
                 // sizes
-                Value *Size = builder.getInt32(8);
+                Value *Size = builder.getInt64(8);
                 for (Value *Dimsize : Sizes) {
                     Size = builder.CreateMul(Size, Dimsize);
                 }
@@ -577,7 +608,7 @@ struct Codegen {
                     // size = elemsize * [index sizes]
                     const int elemsize = mod.getDataLayout().getTypeStoreSize(
                         getBaseLLVMType(ta->t));
-                    Value *Size = builder.getInt32(elemsize);
+                    Value *Size = builder.getInt64(elemsize);
                     for (int i = 0; i < ta->sizes.size(); ++i) {
                         Size = builder.CreateMul(
                             Size, codegenExpr(scope, ta->sizes[i], builder));
@@ -613,20 +644,19 @@ struct Codegen {
                        "array indexed with different number of indeces than "
                        "declaration");
 
-                Value *CurStride = builder.getInt32(1);
-                Value *CurIx = builder.getInt32(0);
+                Value *CurStride = builder.getInt64(1);
+                Value *CurIx = builder.getInt64(0);
                 for (int i = 0; i < larr->indeces.size(); ++i) {
+                    Value *Index = builder.CreateSExt(codegenExpr(scope, larr->indeces[i], builder), builder.getInt64Ty());
+                    Value *Size = builder.CreateSExt(codegenExpr(scope, tyarr->sizes[i], builder), builder.getInt64Ty());
+
                     CurIx = builder.CreateAdd(
                         CurIx,
-                        builder.CreateMul(
-                            codegenExpr(scope, larr->indeces[i], builder),
-                            CurStride));
+                        builder.CreateMul(Index, CurStride));
                     // TODO: this is kludgy. Let's not have symArrSizes. We
                     // can regenerate this info when we want it. CurStride =
                     // builder.CreateMul(sv->symArrSizes[i], CurStride);
-                    CurStride = builder.CreateMul(
-                        codegenExpr(scope, tyarr->sizes[i], builder),
-                        CurStride);
+                    CurStride = builder.CreateMul(Size, CurStride);
                 }
                 // int *arr = load int **arr_stackslot
                 Value *Array = builder.CreateLoad(sv->symValue);

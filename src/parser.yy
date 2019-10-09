@@ -97,6 +97,7 @@ std::vector<tf::FnDefn *> g_fndefns;
 %token FALSE;
 %token SHIFTL
 %token BITWISEAND;
+%token AS;
 
 %start toplevel
 %type <block>	block;
@@ -157,6 +158,8 @@ expr: expr2 AND expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopAnd, $3); }
 expr2: 
      expr3 LEQ expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopLeq, $3); }
      | expr3 LT expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopLt, $3); }
+     | expr3 GT expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopGt, $3); }
+     | expr3 GEQ expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopGeq, $3); }
      | expr3 CMPEQ expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopCmpEq, $3); }
      | expr3 CMPNEQ expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopCmpNeq, $3); }
      | expr3  { $$ = $1; }
@@ -175,7 +178,7 @@ expr4:
   expr5 STAR expr4 { $$ = new tf::ExprBinop($1, tf::Binop::BinopMul, $3); }
   | expr5 DIVIDE expr4 { $$ = new tf::ExprBinop($1, tf::Binop::BinopDiv, $3); }
   | expr5 SHIFTL expr4 { $$ = new tf::ExprBinop($1, tf::Binop::BinopLeftShift, $3); }
-| expr5 { $$ = $1; }
+  | expr5 { $$ = $1; }
 
 
 
@@ -189,6 +192,8 @@ expr5:
      | TRUE { $$ = new tf::ExprBool(true); }
      | FALSE { $$ = new tf::ExprBool(false); }
      | fncall { $$ = $1; }
+     | MINUS expr { $$ = new tf::ExprNegate($expr); }
+     | type OPENPAREN expr CLOSEPAREN { $$ = new tf::ExprCast($expr, $type); }
 
 // function calls
 fncall : IDENTIFIER OPENPAREN CLOSEPAREN {

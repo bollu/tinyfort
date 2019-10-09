@@ -7,22 +7,24 @@ import stdout: FILE
 
 def main() : int {
       ntriples : int = 0;
-      # NMAX : int = 100000000;
-      NMAX : int = 3;
+      NMAX : int = 100000000;
 
-      for z : int = 0; z <= NMAX; z = z + 1  {
-              for x : int = 0; x < NMAX; x = x + 1  {
-                      for y : int = 0; y < NMAX; y = y + 1 {
-                              if (x*x + y*y) == z*z  {
-                                      print(x);
-                                      fputc(' ',stdout);
-                                      print(y);
-                                      fputc(' ',stdout);
-                                      print(z);
-                                      fputc('\n', stdout);
+      for x : int = 0; x <= NMAX; x = x + 1  {
+              for y : int = x; y <= NMAX; y = y + 1  {
+                      for z : int = y; z <= NMAX; z = z + 1 {
+                              if x*x + y*y == z*z  {
+                              print(x);
+                              fputc(' ',stdout);
+                              print(y);
+                              fputc(' ',stdout);
+                              print(z);
+                              fputc('\n', stdout);
+                              ntriples = ntriples + 1;
                               }
                       }
               }
       }
+      # fputs("num triples: ", stdout);
+      print(ntriples);
       return 0;
 }
