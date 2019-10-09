@@ -58,6 +58,7 @@ int compile_program(int argc, char **argv, tf::Program *p);
 ">"          return GT;
 "=="          return CMPEQ;
 "!="          return CMPNEQ;
+"!"           return NOT;
 "<="          return LEQ;
 ">="          return GEQ;
 "&&"          return AND;
@@ -77,7 +78,6 @@ int compile_program(int argc, char **argv, tf::Program *p);
 "import"         return IMPORT;
 "true"         return TRUE;
 "false"         return FALSE;
-"as"           return AS;
 
 [ \t]          ;
 

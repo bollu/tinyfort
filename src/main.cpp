@@ -89,11 +89,11 @@ void tf::printBinop(std::ostream &o, tf::Binop bp) {
             o << "&&";
             return;
         case tf::BinopBitwiseAnd:
-          o << "&";
-          return;
+            o << "&";
+            return;
         case tf::BinopLeftShift:
-          o << "<<";
-          return;
+            o << "<<";
+            return;
         default:
             assert(false && "unreachable");
     }
@@ -204,7 +204,6 @@ Value *getOrInsertPrintString(llvm::Module &mod, Builder builder) {
     Constant *c = mod.getOrInsertFunction("printstring", fty, {});
     return c;
 }
-
 
 Value *getOrInsertFputc(llvm::Module &mod, Builder builder) {
     FunctionType *fty = FunctionType::get(
@@ -392,46 +391,46 @@ struct Codegen {
             errs() << "unable to find value: [" << arr->name << "]\n";
         }
         assert(sv != nullptr);
-        Value *LV = sv->symValue;
-        assert(LV != nullptr);
-        llvm::SmallVector<llvm::Value *, 4> args;
-
-        for (int i = 0; i < arr->indeces.size(); ++i) {
-            args.push_back(codegenExpr(scope, arr->indeces[i], builder));
-        }
-
-        // generate array index
-        assert(LV->getType()->isPointerTy());
-        LValArray *larr = dynamic_cast<LValArray *>(lval);
-        assert(sv != nullptr);
-        // get the type of the array so we can access the dimension
-        // sizes.
+        Value *V = sv->symValue;
+        assert(V != nullptr);
+        assert(V->getType()->isPointerTy());
         TypeArray *tyarr = dynamic_cast<TypeArray *>(sv->symType);
         assert(tyarr != nullptr);
 
-        assert(larr->indeces.size() == tyarr->sizes.size() &&
+        assert(arr->indeces.size() <= tyarr->sizes.size() &&
                "array indexed with different number of indeces than "
                "declaration");
 
         Value *CurStride = builder.getInt64(1);
         Value *CurIx = builder.getInt64(0);
-        for (int i = 0; i < larr->indeces.size(); ++i) {
-            Value *Size = builder.CreateSExt(codegenExpr(scope, tyarr->sizes[i], builder),
-                                            builder.getInt64Ty());
-            Value *Index = builder.CreateSExt(codegenExpr(scope, larr->indeces[i], builder),
-                                            builder.getInt64Ty());
-            CurIx = builder.CreateAdd(CurIx, builder.CreateMul(Index, CurStride));
+        for (int i = 0; i < arr->indeces.size(); ++i) {
+            Value *Size =
+                builder.CreateSExt(codegenExpr(scope, tyarr->sizes[i], builder),
+                                   builder.getInt64Ty());
+            Value *Index =
+                builder.CreateSExt(codegenExpr(scope, arr->indeces[i], builder),
+                                   builder.getInt64Ty());
+            CurIx =
+                builder.CreateAdd(CurIx, builder.CreateMul(Index, CurStride));
             // TODO: this is kludgy. Let's not have symArrSizes. We can
             // regenerate this info when we want it.
             // CurStride = builder.CreateMul(sv->symArrSizes[i],
             // CurStride);
             CurStride = builder.CreateMul(Size, CurStride);
         }
+
         // int *arr = load int **arr_stackslot
         Value *Array = builder.CreateLoad(sv->symValue);
         // int *arr_at_ix = arr + index
         Value *Access = builder.CreateGEP(Array, CurIx);
-        return builder.CreateLoad(Access);
+
+        // array index is saturated, so we want to load
+        if (arr->indeces.size() == tyarr->sizes.size()) {
+            return builder.CreateLoad(Access);
+        } else {
+            // array index is unsaturated, we want to create a slice
+            return Access;
+        }
     }
 
     llvm::Value *codegenExpr(SymTable &scope, Expr *e, Builder builder) {
@@ -504,13 +503,13 @@ struct Codegen {
                     return builder.CreateAnd(l, r);
                 case Binop::BinopOr:
                     return builder.CreateOr(l, r);
-                case Binop::BinopCmpEq: 
+                case Binop::BinopCmpEq:
                     return builder.CreateICmpEQ(l, r);
-                case Binop::BinopCmpNeq: 
+                case Binop::BinopCmpNeq:
                     return builder.CreateICmpNE(l, r);
-                 case Binop::BinopBitwiseAnd: 
+                case Binop::BinopBitwiseAnd:
                     return builder.CreateAnd(l, r);
-                case Binop::BinopLeftShift: 
+                case Binop::BinopLeftShift:
                     return builder.CreateShl(l, r);
                 default:
                     cerr << "unknown binop: |" << eb->op << "|";
@@ -523,13 +522,15 @@ struct Codegen {
 
             llvm::Instruction::CastOps castop =
                 llvm::CastInst::getCastOpcode(tocast,
-                                             /*isSigned=*/true,
-                                             castty,
-                                             /*isSigned=*/true);
-            assert(llvm::CastInst::castIsValid(castop, tocast, castty) && "invalid cast");
+                                              /*isSigned=*/true, castty,
+                                              /*isSigned=*/true);
+            assert(llvm::CastInst::castIsValid(castop, tocast, castty) &&
+                   "invalid cast");
             return builder.CreateCast(castop, tocast, castty);
         } else if (ExprNegate *en = dynamic_cast<ExprNegate *>(e)) {
             return builder.CreateNeg(codegenExpr(scope, en->e, builder));
+        } else if (ExprNot *en = dynamic_cast<ExprNot *>(e)) {
+            return builder.CreateNot(codegenExpr(scope, en->e, builder));
         }
 
         cerr << "unable to codegen expression:\n[";
@@ -556,7 +557,6 @@ struct Codegen {
             // we need to codegen a malloc
             if (tf::TypeArray *arrty = dynamic_cast<tf::TypeArray *>(let->ty)) {
                 assert(arrty != nullptr && "incorrect array type");
-
 
                 std::vector<Value *> Sizes;
                 for (auto it : arrty->sizes) {
@@ -634,6 +634,11 @@ struct Codegen {
                 LValArray *larr = static_cast<LValArray *>(s->lval);
                 const std::string arrname = larr->name;
                 const SymValue *sv = scope.find(arrname);
+                if (sv == nullptr) {
+                    cerr << "unable to find array: |";
+                    larr->print(cerr);
+                    cerr << "|";
+                }
                 assert(sv != nullptr);
                 // get the type of the array so we can access the dimension
                 // sizes.
@@ -647,12 +652,15 @@ struct Codegen {
                 Value *CurStride = builder.getInt64(1);
                 Value *CurIx = builder.getInt64(0);
                 for (int i = 0; i < larr->indeces.size(); ++i) {
-                    Value *Index = builder.CreateSExt(codegenExpr(scope, larr->indeces[i], builder), builder.getInt64Ty());
-                    Value *Size = builder.CreateSExt(codegenExpr(scope, tyarr->sizes[i], builder), builder.getInt64Ty());
+                    Value *Index = builder.CreateSExt(
+                        codegenExpr(scope, larr->indeces[i], builder),
+                        builder.getInt64Ty());
+                    Value *Size = builder.CreateSExt(
+                        codegenExpr(scope, tyarr->sizes[i], builder),
+                        builder.getInt64Ty());
 
                     CurIx = builder.CreateAdd(
-                        CurIx,
-                        builder.CreateMul(Index, CurStride));
+                        CurIx, builder.CreateMul(Index, CurStride));
                     // TODO: this is kludgy. Let's not have symArrSizes. We
                     // can regenerate this info when we want it. CurStride =
                     // builder.CreateMul(sv->symArrSizes[i], CurStride);

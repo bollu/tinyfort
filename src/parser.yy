@@ -97,7 +97,7 @@ std::vector<tf::FnDefn *> g_fndefns;
 %token FALSE;
 %token SHIFTL
 %token BITWISEAND;
-%token AS;
+%token NOT;
 
 %start toplevel
 %type <block>	block;
@@ -150,18 +150,18 @@ block: OPENFLOWER CLOSEFLOWER { $$ = new tf::Block({}); }
      }
 
 // logical
-expr: expr2 AND expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopAnd, $3); }
-     | expr2 OR expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopOr, $3); }
+expr: expr2 AND expr { $$ = new tf::ExprBinop($1, tf::Binop::BinopAnd, $3); }
+     | expr2 OR expr { $$ = new tf::ExprBinop($1, tf::Binop::BinopOr, $3); }
      | expr2 { $$ = $1; }
 
 // relational
 expr2: 
-     expr3 LEQ expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopLeq, $3); }
-     | expr3 LT expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopLt, $3); }
-     | expr3 GT expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopGt, $3); }
-     | expr3 GEQ expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopGeq, $3); }
-     | expr3 CMPEQ expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopCmpEq, $3); }
-     | expr3 CMPNEQ expr3 { $$ = new tf::ExprBinop($1, tf::Binop::BinopCmpNeq, $3); }
+     expr3 LEQ expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopLeq, $3); }
+     | expr3 LT expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopLt, $3); }
+     | expr3 GT expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopGt, $3); }
+     | expr3 GEQ expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopGeq, $3); }
+     | expr3 CMPEQ expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopCmpEq, $3); }
+     | expr3 CMPNEQ expr2 { $$ = new tf::ExprBinop($1, tf::Binop::BinopCmpNeq, $3); }
      | expr3  { $$ = $1; }
 
 
@@ -193,6 +193,7 @@ expr5:
      | FALSE { $$ = new tf::ExprBool(false); }
      | fncall { $$ = $1; }
      | MINUS expr { $$ = new tf::ExprNegate($expr); }
+     | NOT expr { $$ = new tf::ExprNot($expr); }
      | type OPENPAREN expr CLOSEPAREN { $$ = new tf::ExprCast($expr, $type); }
 
 // function calls

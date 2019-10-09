@@ -220,9 +220,11 @@ class ExprChar : public Expr {
             c = stripped.c_str()[0];
         } else if (stripped == "\\n") {
             c = '\n';
-            
+
         } else if (stripped == "\\0") {
             c = '\0';
+        } else if (stripped == "\\t") {
+            c = '\t';
         } else {
             fprintf(stderr, "incorrect character: |%s|\n", stripped.c_str());
             assert(false &&
@@ -266,36 +268,46 @@ class ExprFnCall : public Expr {
     Type *getType() const { assert(false && "unimplemented"); }
 };
 
- class ExprCast: public Expr {
- public:
-     Expr *e;
-     Type *castty;
+class ExprCast : public Expr {
+   public:
+    Expr *e;
+    Type *castty;
 
-     ExprCast(Expr *e, Type *castty): e(e), castty(castty) {};
+    ExprCast(Expr *e, Type *castty) : e(e), castty(castty){};
 
-     void print(std::ostream &o, int depth = 0) {
-         castty->print(o);
-         o << "(";
-         e->print(o);
-         o << ")";
+    void print(std::ostream &o, int depth = 0) {
+        castty->print(o);
+        o << "(";
+        e->print(o);
+        o << ")";
+    }
 
-     }
-     
-     Type *getType() const  { assert (false && "unimplemented"); }
- };
+    Type *getType() const { assert(false && "unimplemented"); }
+};
 
- class ExprNegate : public Expr {
- public:
-     Expr *e;
-     ExprNegate (Expr *e): e(e) {};
-     void print(std::ostream &o, int depth = 0) {
-         o << "(- ";
-         e->print(o);
-         o << ")";
-     }
-     Type *getType() const  { assert (false && "unimplemented"); }
+class ExprNegate : public Expr {
+   public:
+    Expr *e;
+    ExprNegate(Expr *e) : e(e){};
+    void print(std::ostream &o, int depth = 0) {
+        o << "(- ";
+        e->print(o);
+        o << ")";
+    }
+    Type *getType() const { assert(false && "unimplemented"); }
+};
 
- };
+class ExprNot : public Expr {
+   public:
+    Expr *e;
+    ExprNot(Expr *e) : e(e){};
+    void print(std::ostream &o, int depth = 0) {
+        o << "(! ";
+        e->print(o);
+        o << ")";
+    }
+    Type *getType() const { assert(false && "unimplemented"); }
+};
 
 class Stmt {
    public:
