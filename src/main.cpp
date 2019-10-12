@@ -401,22 +401,20 @@ struct Codegen {
                "array indexed with different number of indeces than "
                "declaration");
 
-        Value *CurStride = builder.getInt64(1);
         Value *CurIx = builder.getInt64(0);
         for (int i = 0; i < arr->indeces.size(); ++i) {
-            Value *Size =
-                builder.CreateSExt(codegenExpr(scope, tyarr->sizes[i], builder),
-                                   builder.getInt64Ty());
+
+            Value *CurStride = builder.getInt64(1);
+            for(int j = tyarr->sizes.size() - 2; j >= 0; j--) {
+                CurStride = builder.CreateMul(CurStride, 
+                        codegenExpr(scope, tyarr->sizes[j], builder));
+            }
+
             Value *Index =
                 builder.CreateSExt(codegenExpr(scope, arr->indeces[i], builder),
                                    builder.getInt64Ty());
             CurIx =
                 builder.CreateAdd(CurIx, builder.CreateMul(Index, CurStride));
-            // TODO: this is kludgy. Let's not have symArrSizes. We can
-            // regenerate this info when we want it.
-            // CurStride = builder.CreateMul(sv->symArrSizes[i],
-            // CurStride);
-            CurStride = builder.CreateMul(Size, CurStride);
         }
 
         // int *arr = load int **arr_stackslot
@@ -649,24 +647,22 @@ struct Codegen {
                        "array indexed with different number of indeces than "
                        "declaration");
 
-                Value *CurStride = builder.getInt64(1);
                 Value *CurIx = builder.getInt64(0);
                 for (int i = 0; i < larr->indeces.size(); ++i) {
-                    Value *Index = builder.CreateSExt(
-                        codegenExpr(scope, larr->indeces[i], builder),
-                        builder.getInt64Ty());
-                    Value *Size = builder.CreateSExt(
-                        codegenExpr(scope, tyarr->sizes[i], builder),
-                        builder.getInt64Ty());
 
-                    CurIx = builder.CreateAdd(
-                        CurIx, builder.CreateMul(Index, CurStride));
-                    // TODO: this is kludgy. Let's not have symArrSizes. We
-                    // can regenerate this info when we want it. CurStride =
-                    // builder.CreateMul(sv->symArrSizes[i], CurStride);
-                    CurStride = builder.CreateMul(Size, CurStride);
+                    Value *CurStride = builder.getInt64(1);
+                    for(int j = tyarr->sizes.size() - 2; j >= 0; j--) {
+                        CurStride = builder.CreateMul(CurStride, 
+                                codegenExpr(scope, tyarr->sizes[j], builder));
+                    }
+
+                    Value *Index =
+                        builder.CreateSExt(codegenExpr(scope, larr->indeces[i], builder),
+                                builder.getInt64Ty());
+                    CurIx =
+                        builder.CreateAdd(CurIx, builder.CreateMul(Index, CurStride));
                 }
-                // int *arr = load int **arr_stackslot
+                // int *arr = *(int **arr_slot)
                 Value *Array = builder.CreateLoad(sv->symValue);
                 // int *arr_at_ix = arr + index
                 Value *Access = builder.CreateGEP(Array, CurIx);
