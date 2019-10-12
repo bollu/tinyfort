@@ -6,6 +6,6 @@ def fact(i: int): int {
 }
 
 def main(i:int) : int {
-      print[fact[5]];
+      print(fact(5));
       return 0;
 }

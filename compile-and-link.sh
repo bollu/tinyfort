@@ -5,4 +5,3 @@ set -o xtrace
 opt $1.ll -S -O3 -o $1.o3.ll
 llc $1.o3.ll -o $1.o -filetype=obj
 gcc $1.o  -L$(pwd) -lfort -lm -o $1.out
-./$1.out $2
