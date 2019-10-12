@@ -7,7 +7,7 @@ import stdout: FILE
 
 def main() : int {
       ntriples : int = 0;
-      NMAX : int = 100000000;
+      NMAX : int = readint64();
 
       for x : int = 0; x <= NMAX; x = x + 1  {
               for y : int = x; y <= NMAX; y = y + 1  {
