@@ -10,3 +10,8 @@ for f in prog*.f90; do
     llc build/$f.o3.ll -o build/$f.o -filetype=obj
     gcc build/$f.o  -L$(pwd) -L../build -lfort -lm -o build/$f.out
 done
+
+for f in build/*.out; do
+    echo "### running $f... ###"
+    ./$f
+done

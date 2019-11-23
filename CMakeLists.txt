@@ -61,6 +61,7 @@ add_executable(tinyfort
     ${BISON_Parser_OUTPUTS}
     ${FLEX_Lexer_OUTPUTS}
     src/main.cpp
+    src/interpreter.cpp
     )
 
 add_library(fort src/libfort.c)
