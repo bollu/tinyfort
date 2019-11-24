@@ -314,10 +314,10 @@ class Stmt {
     virtual void print(std::ostream &o, int depth = 0) = 0;
 };
 
-struct Block {
+class Block {
+    public:
     std::vector<Stmt *> stmts;
     Block(std::vector<Stmt *> stmts) : stmts(stmts){};
-
     void print(std::ostream &o, int depth = 0) {
         align(o, depth);
         o << "{\n";
