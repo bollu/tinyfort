@@ -4,9 +4,9 @@
 #include <cstdio>
 #include <iostream>
 #include <string>
+#include "tinyfort/interpreter.h"
 #include "tinyfort/ir.h"
 #include "tinyfort/scope.h"
-#include "tinyfort/interpreter.h"
 // Z3
 #include "z3.h"
 // LLVM
@@ -313,11 +313,10 @@ struct Codegen {
 
         Value *CurIx = builder.getInt64(0);
         for (int i = 0; i < arr->indeces.size(); ++i) {
-
             Value *CurStride = builder.getInt64(1);
-            for(int j = tyarr->sizes.size() - 2; j >= 0; j--) {
-                CurStride = builder.CreateMul(CurStride, 
-                        codegenExpr(scope, tyarr->sizes[j], builder));
+            for (int j = tyarr->sizes.size() - 2; j >= 0; j--) {
+                CurStride = builder.CreateMul(
+                    CurStride, codegenExpr(scope, tyarr->sizes[j], builder));
             }
 
             Value *Index =
@@ -559,18 +558,18 @@ struct Codegen {
 
                 Value *CurIx = builder.getInt64(0);
                 for (int i = 0; i < larr->indeces.size(); ++i) {
-
                     Value *CurStride = builder.getInt64(1);
-                    for(int j = tyarr->sizes.size() - 2; j >= 0; j--) {
-                        CurStride = builder.CreateMul(CurStride, 
-                                codegenExpr(scope, tyarr->sizes[j], builder));
+                    for (int j = tyarr->sizes.size() - 2; j >= 0; j--) {
+                        CurStride = builder.CreateMul(
+                            CurStride,
+                            codegenExpr(scope, tyarr->sizes[j], builder));
                     }
 
-                    Value *Index =
-                        builder.CreateSExt(codegenExpr(scope, larr->indeces[i], builder),
-                                builder.getInt64Ty());
-                    CurIx =
-                        builder.CreateAdd(CurIx, builder.CreateMul(Index, CurStride));
+                    Value *Index = builder.CreateSExt(
+                        codegenExpr(scope, larr->indeces[i], builder),
+                        builder.getInt64Ty());
+                    CurIx = builder.CreateAdd(
+                        CurIx, builder.CreateMul(Index, CurStride));
                 }
                 // int *arr = *(int **arr_slot)
                 Value *Array = builder.CreateLoad(sv->symValue);
