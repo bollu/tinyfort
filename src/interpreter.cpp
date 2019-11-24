@@ -1,12 +1,63 @@
 #include <interpreter.h>
+#include<stack>
 using namespace tf;
 using namespace std;
 
+using Env = std::map<std::string, InterpValue*>;
 struct State {
-    Scope<std::string, InterpValue> scope;
+    vector<Env> scopes;
+    // whether the state is one that returned a value
+    Optional<InterpValue *> retval;
+    State () : retval(None) {
+        scopes.push_back(std::map<string, InterpValue*>());
+    };
 };
 
-void interpretFnDefn(FnDefn f, std::vector<InterpValue *> args, State &s);
+InterpValue *findValue(const State &s, std::string name) {
+    for(int i = s.scopes.size() - 1; i >= 0; i--) {
+        const Env &name2v  = s.scopes[i];
+        auto it = name2v.find(name);
+        if (it != name2v.end())
+            return it->second;
+    }
+    return nullptr;
+}
+
+void createValueSlot(State &s, std::string name) {
+    cerr << __FUNCTION__ << ": 1 "; cerr.flush();
+    assert(s.scopes.size() > 0);
+    cerr << "2 "; cerr.flush();
+    Env &env = s.scopes[s.scopes.size() - 1];
+    cerr << "3 "; cerr.flush();
+    assert(env.find(name) == env.end());
+    cerr << "4 "; cerr.flush();
+    env[name] = InterpValue::Void();
+    cerr << "5 "; cerr.flush();
+    cerr << "\n";
+}
+
+void setValue(State &s, std::string name, InterpValue *value) {
+    for(int i = s.scopes.size() - 1; i >= 0; i--) {
+        Env &name2v  = s.scopes[i];
+        auto it = name2v.find(name);
+        if (it != name2v.end()) {
+            name2v[name] = value;
+            return;
+        }
+    }
+    cerr << "unable to find variable: |" << name << "|\n";
+    assert(false && "unable to find variable");
+}
+
+void pushScope(State &s) {
+    s.scopes.push_back(std::map<string, InterpValue*>());
+}
+
+void popScope(State &s) {
+    s.scopes.pop_back();
+}
+
+InterpValue *interpretFnDefn(FnDefn f, std::vector<InterpValue *> args, State &s);
 InterpValue *interpretExpr(State &s, Expr *e);
 void interpretStmt(State &s, Stmt *stmt);
 
@@ -23,7 +74,7 @@ InterpValue *interpretCall(State &s, std::string name,
             return InterpValue::Void();
         }
     } else {
-        InterpValue *v = s.scope.find(name);
+        InterpValue *v = findValue(s, name);
         if (v == nullptr) {
             cerr << "Unknown function call: |" << name << "|";
             assert(false && "unknown function call");
@@ -32,7 +83,7 @@ InterpValue *interpretCall(State &s, std::string name,
         assert(v != nullptr);
         FnDefn *f = v->as_function();
         assert(f != nullptr && "illegal function in scope");
-        interpretFnDefn(*f, args, s);
+        return interpretFnDefn(*f, args, s);
 
         assert(false && "unknown function call");
     }
@@ -79,19 +130,34 @@ InterpValue *interpretBinop(State &s, ExprBinop *b) {
             break;
         }
 
-        case (BinopDiv):
+        case (BinopDiv): {
+            if (l->is_int()) return InterpValue::Int(l->as_int() / r->as_int());
+            assert(false && "unreachable");
+            break;
+        }
+
         case (BinopModulo):
         case (BinopOr):
         case (BinopLt):
-        case (BinopLeq):
+        case (BinopLeq):  {
+            if (l->is_int()) return InterpValue::Bool(l->as_int() <= r->as_int());
+            
+            assert(false && "unreachable");
+            break;
+        }
+
         case (BinopGt):
         case (BinopGeq):
         case (BinopCmpEq):
         case (BinopCmpNeq):
         case (BinopAnd):
         case (BinopLeftShift):
-        case (BinopBitwiseAnd):
+        case (BinopBitwiseAnd): {
+            cerr << "Binop: |";
+            b->print(cerr);
+            cerr << "|";
             assert(false && "unimplemented binop");
+        }
     }
 
     assert(false && "unreachable");
@@ -99,14 +165,14 @@ InterpValue *interpretBinop(State &s, ExprBinop *b) {
 
 InterpValue *interpLValUse(State &s, LVal *lv) {
     if (LValIdent *i = dynamic_cast<LValIdent *>(lv)) {
-        if (InterpValue *v = s.scope.find(i->name)) {
+        if (InterpValue *v = findValue(s, i->name)) {
             return v;
         } else {
             cerr << "unknown identifier |" << i->name << "|\n";
             assert(false && "unknown identifier");
         }
     } else {
-        LValArray *a = dynamic_cast<LValArray *>(a);
+        LValArray *a = dynamic_cast<LValArray *>(lv);
         assert(false && "unimplemented use of array");
     }
 
@@ -114,6 +180,10 @@ InterpValue *interpLValUse(State &s, LVal *lv) {
 }
 
 InterpValue *interpretExpr(State &s, Expr *e) {
+    // cerr << "interpreting: |";
+    // e->print(cerr);
+    // cerr << "|\n";
+
     if (ExprInt *i = dynamic_cast<ExprInt *>(e)) {
         return InterpValue::Int(i->i);
     } else if (ExprFnCall *call = dynamic_cast<ExprFnCall *>(e)) {
@@ -137,39 +207,54 @@ InterpValue *interpretExpr(State &s, Expr *e) {
     assert(false && "unreachable");
 }
 
-void interpretBlock(State &s, Block *b) {
+void interpretStmtBlock(State &s, Block *b) {
     for (Stmt *stmt : b->stmts) {
         interpretStmt(s, stmt);
+        if (s.retval) return;
     }
 }
 
 void interpretStmt(State &s, Stmt *stmt) {
+    // cerr << "interpreting: |";
+    // stmt->print(cerr);
+    // cerr << "|\n";
+
     if (StmtSet *stmtset = dynamic_cast<StmtSet *>(stmt)) {
         if (LValIdent *ident = dynamic_cast<LValIdent *>(stmtset->lval)) {
-            s.scope.insert(ident->name, interpretExpr(s, stmtset->rhs));
+            setValue(s, ident->name, interpretExpr(s, stmtset->rhs));
         } else {
             LValArray *arr = dynamic_cast<LValArray *>(stmtset->lval);
             assert(false && "unimplementd");
         }
 
-    } else if (dynamic_cast<StmtLet *>(stmt)) {
+    } else if (StmtLet *let = dynamic_cast<StmtLet *>(stmt)) {
+        createValueSlot(s, let->name);
         // nothing to be done for a let.
         return;
-    } else if (StmtLetSet *ls = dynamic_cast<StmtLetSet *>(stmt)) {
-        s.scope.insert(ls->name, interpretExpr(s, ls->rhs));
+    } else if (StmtReturn *sr = dynamic_cast<StmtReturn *>(stmt)) {
+        cerr << "stmt: " << stmt << " | retval: " << interpretExpr(s, sr->e)->as_int() << "\n";
+        // initialize retval
+        s.retval = interpretExpr(s, sr->e);
+        return;
+    }
+    else if (StmtLetSet *ls = dynamic_cast<StmtLetSet *>(stmt)) {
+        createValueSlot(s, ls->name);
+        setValue(s, ls->name, interpretExpr(s, ls->rhs));
     } else if (StmtExpr *e = dynamic_cast<StmtExpr *>(stmt)) {
         interpretExpr(s, e->e);
     } else if (StmtForLoop *f = dynamic_cast<StmtForLoop *>(stmt)) {
+        pushScope(s);
         interpretStmt(s, f->init);
 
         while (1) {
             const InterpValue *condv = interpretExpr(s, f->cond);
             const bool cond = condv->as_bool();
             if (!cond) break;
-
-            interpretBlock(s, f->inner);
+            interpretStmtBlock(s, f->inner);
+            if (s.retval) return;
+            interpretStmt(s, f->after);
         }
-        interpretStmt(s, f->after);
+        popScope(s);
     } else {
         cerr << "unknown statement:\n";
         stmt->print(cerr);
@@ -177,9 +262,29 @@ void interpretStmt(State &s, Stmt *stmt) {
     }
 }
 
-void interpretFnDefn(FnDefn f, std::vector<InterpValue *> args, State &s) {
+// fnDefn does not take State by reference since it's supposed to be a new
+// scope.
+InterpValue* interpretFnDefn(FnDefn f, std::vector<InterpValue *> args, State &s) {
+    pushScope(s);
+    assert(args.size() == f.formals.size());
+    for (int i = 0; i < args.size(); ++i) {
+        createValueSlot(s, f.formals[i]);
+        setValue(s, f.formals[i], args[i]);
+    }
+
     for (auto stmt : f.b->stmts) {
         interpretStmt(s, stmt);
+        if (s.retval) {
+            goto TERMINATE;
+        }
+    }
+
+    TERMINATE:
+    popScope(s);
+    if (!s.retval) {
+        return InterpValue::Void();
+    } else {
+        return *s.retval;
     }
 }
 
@@ -190,7 +295,8 @@ void interpret(Program *p) {
         if (f->name == "main") {
             main = f;
         }
-        s.scope.insert(f->name, InterpValue::Function(f));
+        createValueSlot(s, f->name);
+        setValue(s, f->name, InterpValue::Function(f));
     }
 
     if (!main) {

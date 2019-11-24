@@ -13,8 +13,3 @@ paper/paper.tex: src/Main.lhs
 
 paper/paper.pdf: paper/paper.tex
 	cd paper && pdflatex  -shell-escape paper.tex 
-
-
-
-
-

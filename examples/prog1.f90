@@ -11,14 +11,6 @@ def pow(base: int, p: int): int {
       return prod;
 }
 
-def prog(n: int, k: int): int {
-      sum : int = 0;
-      for i: int = 0; i <= n; i = i + 1 {
-        sum = sum + pow(i, k);
-      }
-      return sum;
-}
-
 def main() : int {
       n : int;
       k : int;

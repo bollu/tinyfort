@@ -97,4 +97,3 @@ class Scope {
         if (inner) delete inner.getValue();
     }
 };
-
