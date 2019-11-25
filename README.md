@@ -11,3 +11,9 @@ $ mkdir build && cd build && cmake ../ && make
 $ ln -s ../compile-and-link.sh compile-and-link.sh
 $ compile-and-link.sh ../examples/prog1.f90
 ```
+
+### Interpreter stuff
+- prog7 seems to have been lost??? WTF
+- prog8 glitches
+- prog10 also glitches
+- prog11, prog12 have a bug related to arguments

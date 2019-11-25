@@ -333,7 +333,7 @@ void interpretStmt(State &s, Stmt *stmt) {
             const bool cond = condv->as_bool();
             if (!cond) break;
             interpretStmtBlock(s, f->inner);
-            if (s.retval) return;
+            if (s.retval) { popScope(s); return; };
             interpretStmt(s, f->after);
         }
         popScope(s);
@@ -345,11 +345,23 @@ void interpretStmt(State &s, Stmt *stmt) {
         }
     } else if (StmtTailElse *e = dynamic_cast<StmtTailElse *>(stmt)) {
         interpretStmtBlock(s, e->inner);
-    } else {
+    }
+    else if (StmtWhileLoop *w = dynamic_cast<StmtWhileLoop *>(stmt)) {
+        pushScope(s);
+        while (1) {
+            const InterpValue *condv = interpretExpr(s, w->cond);
+            const bool cond = condv->as_bool();
+            if (!cond) break;
+            interpretStmtBlock(s, w->inner);
+            if (s.retval) { popScope(s); return; };
+        }
+        popScope(s);
+    }
+    else {
         cerr << "unknown statement:\n";
         stmt->print(cerr);
         assert(false && "unknown statement");
-    }
+    } 
 }
 
 // fnDefn does not take State by reference since it's supposed to be a new
