@@ -12,6 +12,10 @@ struct State {
     State() : retval(None) {
         scopes.push_back(std::map<string, InterpValue *>());
     };
+
+    void resetReturn() {
+        retval = None;
+    }
 };
 
 InterpValue *getValue(const State &s, std::string name) {
@@ -71,6 +75,7 @@ void interpretStmt(State &s, Stmt *stmt);
 
 InterpValue *interpretCall(State &s, std::string name,
                            std::vector<InterpValue *> args) {
+    // cout << "interpretCall: " << name << "\n";
     if (name == "readint64") {
         int i;
         cin >> i;
@@ -85,12 +90,14 @@ InterpValue *interpretCall(State &s, std::string name,
         std::string s = args[0]->as_string();
         FILE *f = args[1]->as_file();
         fputs(s.c_str(), f);
+        fflush(f);
         return InterpValue::Void();
     } else if (name == "fputc") {
         assert(args.size() == 2);
         char c = args[0]->as_char();
         FILE *f = args[1]->as_file();
         fputc(c, f);
+        fflush(f);
         return InterpValue::Void();
     } else {
         InterpValue *v = getValue(s, name);
@@ -264,6 +271,10 @@ InterpValue *interpretExpr(State &s, Expr *e) {
     } else if (ExprChar *c = dynamic_cast<ExprChar *>(e)) {
         return InterpValue::Char(c->c);
     } else if (ExprFnCall *call = dynamic_cast<ExprFnCall *>(e)) {
+        // cout << "ExprFnCall: |"; 
+        // call->print(cout);
+        // cout << "|\n";
+
         std::vector<InterpValue *> paramVals;
         for (Expr *p : call->params) {
             paramVals.push_back(interpretExpr(s, p));
@@ -287,14 +298,14 @@ InterpValue *interpretExpr(State &s, Expr *e) {
 void interpretStmtBlock(State &s, Block *b) {
     for (Stmt *stmt : b->stmts) {
         interpretStmt(s, stmt);
-        if (s.retval) return;
+        if (s.retval) { return; }
     }
 }
 
 void interpretStmt(State &s, Stmt *stmt) {
-    // cerr << "interpreting: |";
-    // stmt->print(cerr);
-    // cerr << "|\n";
+    // cout << "interpretStmt: |";
+    // stmt->print(cout);
+    // cout << "|\n";
 
     if (StmtSet *stmtset = dynamic_cast<StmtSet *>(stmt)) {
         if (LValIdent *ident = dynamic_cast<LValIdent *>(stmtset->lval)) {
@@ -387,7 +398,9 @@ TERMINATE:
     if (!s.retval) {
         return InterpValue::Void();
     } else {
-        return *s.retval;
+        InterpValue *v = *s.retval;
+        s.resetReturn();
+        return v;
     }
 }
 
