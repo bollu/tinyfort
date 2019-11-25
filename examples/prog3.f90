@@ -24,7 +24,7 @@ def main() : int {
       }
 
       sum : int = 0;
-      for i: int = 1; i <= n; i = i + 1  {
+      for i: int = 2; i <= n; i = i + 1  {
           if (isprime[i]) { sum = sum  + i;}
       }
       print(sum);

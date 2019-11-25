@@ -216,13 +216,16 @@ InterpValue *interpLValUse(State &s, LVal *lv) {
         InterpValue *v = getValue(s, a->name);
         assert(v != nullptr && "unable to find value for array");
 
-
         std::vector<int> ixs;
         for(int i = 0; i < a->indeces.size(); ++i) {
             ixs.push_back(interpretExpr(s, a->indeces[i])->as_int());
         }
 
-        return v->as_array()[ixs];
+        ArrVal &arr = v->as_array();
+        auto it = arr.find(ixs);
+        assert(it != arr.end());
+        return it->second;
+
     }
 
     assert(false && "unreachable");
