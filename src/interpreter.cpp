@@ -167,7 +167,7 @@ InterpValue *interpretBinop(State &s, ExprBinop *b) {
         }
         case (BinopLt): {
             if (l->is_int())
-                return InterpValue::Bool(l->as_int() <= r->as_int());
+                return InterpValue::Bool(l->as_int() < r->as_int());
 
             assert(false && "unreachable");
         }
@@ -179,10 +179,18 @@ InterpValue *interpretBinop(State &s, ExprBinop *b) {
             break;
         }
 
-        case (BinopGt):
-            assert(false);
-        case (BinopGeq):
-            assert(false);
+        case (BinopGt): {
+            if (l->is_int())
+                return InterpValue::Bool(l->as_int() > r->as_int());
+            assert(false && "unreachable");
+            break;
+        }
+        case (BinopGeq): {
+            if (l->is_int())
+                return InterpValue::Bool(l->as_int() >= r->as_int());
+            assert(false && "unreachable");
+            break;
+        }
         case (BinopCmpEq): {
             if (l->is_int())
                 return InterpValue::Bool(l->as_int() == r->as_int());
