@@ -1,5 +1,6 @@
 #include <interpreter.h>
 #include<stack>
+#include <stdio.h>
 using namespace tf;
 using namespace std;
 
@@ -13,7 +14,7 @@ struct State {
     };
 };
 
-InterpValue *findValue(const State &s, std::string name) {
+InterpValue *getValue(const State &s, std::string name) {
     for(int i = s.scopes.size() - 1; i >= 0; i--) {
         const Env &name2v  = s.scopes[i];
         auto it = name2v.find(name);
@@ -23,17 +24,28 @@ InterpValue *findValue(const State &s, std::string name) {
     return nullptr;
 }
 
-void createValueSlot(State &s, std::string name) {
-    cerr << __FUNCTION__ << ": 1 "; cerr.flush();
+
+void createScalarSlot(State &s, std::string name) {
     assert(s.scopes.size() > 0);
-    cerr << "2 "; cerr.flush();
     Env &env = s.scopes[s.scopes.size() - 1];
-    cerr << "3 "; cerr.flush();
-    assert(env.find(name) == env.end());
-    cerr << "4 "; cerr.flush();
     env[name] = InterpValue::Void();
-    cerr << "5 "; cerr.flush();
-    cerr << "\n";
+}
+
+void createArraySlot(State &s, std::string name) {
+    assert(s.scopes.size() > 0);
+    Env &env = s.scopes[s.scopes.size() - 1];
+    env[name] = InterpValue::Array({});
+}
+
+
+void createTypeBasedSlot(State &s, std::string name, Type *ty) {
+    if (dynamic_cast<TypeArray *>(ty)) {
+        createArraySlot(s, name);
+    } else if (dynamic_cast<TypeBase *>(ty)) {
+        createScalarSlot(s, name);
+    } else {
+        assert(false && "unknown type");
+    }
 }
 
 void setValue(State &s, std::string name, InterpValue *value) {
@@ -73,8 +85,21 @@ InterpValue *interpretCall(State &s, std::string name,
             cout << "\n";
             return InterpValue::Void();
         }
-    } else {
-        InterpValue *v = findValue(s, name);
+    } else if (name == "fputs") {
+        assert(args.size() == 2);
+        std::string s = args[0]->as_string();
+        FILE *f = args[1]->as_file();
+        fputs(s.c_str(), f);
+        return InterpValue::Void();
+    } else if (name == "fputc") {
+        assert(args.size() == 2);
+        char c = args[0]->as_char();
+        FILE *f = args[1]->as_file();
+        fputc(c, f);
+        return InterpValue::Void();
+    }
+    else {
+        InterpValue *v = getValue(s, name);
         if (v == nullptr) {
             cerr << "Unknown function call: |" << name << "|";
             assert(false && "unknown function call");
@@ -107,6 +132,7 @@ void InterpValue::print(std::ostream &o) {
     }
 };
 
+
 InterpValue *interpretBinop(State &s, ExprBinop *b) {
     InterpValue *l = interpretExpr(s, b->l);
     InterpValue *r = interpretExpr(s, b->r);
@@ -136,9 +162,17 @@ InterpValue *interpretBinop(State &s, ExprBinop *b) {
             break;
         }
 
-        case (BinopModulo):
-        case (BinopOr):
-        case (BinopLt):
+        case (BinopModulo):  {
+            if (l->is_int()) return InterpValue::Int(l->as_int() % r->as_int());
+            
+            assert(false && "unreachable");
+            break;
+        }
+
+        case (BinopOr): {
+            return InterpValue::Bool(l->as_bool() || r->as_bool());
+        }
+        case (BinopLt): assert(false);
         case (BinopLeq):  {
             if (l->is_int()) return InterpValue::Bool(l->as_int() <= r->as_int());
             
@@ -146,12 +180,17 @@ InterpValue *interpretBinop(State &s, ExprBinop *b) {
             break;
         }
 
-        case (BinopGt):
-        case (BinopGeq):
-        case (BinopCmpEq):
-        case (BinopCmpNeq):
-        case (BinopAnd):
-        case (BinopLeftShift):
+        case (BinopGt): assert(false);
+        case (BinopGeq): assert(false);
+        case (BinopCmpEq):  {
+            if (l->is_int()) return InterpValue::Bool(l->as_int() == r->as_int());
+        }
+        case (BinopCmpNeq): assert(false);
+        case (BinopAnd):  {
+            return InterpValue::Bool(l->as_bool() && r->as_bool());
+        }
+
+        case (BinopLeftShift): assert(false);
         case (BinopBitwiseAnd): {
             cerr << "Binop: |";
             b->print(cerr);
@@ -165,7 +204,7 @@ InterpValue *interpretBinop(State &s, ExprBinop *b) {
 
 InterpValue *interpLValUse(State &s, LVal *lv) {
     if (LValIdent *i = dynamic_cast<LValIdent *>(lv)) {
-        if (InterpValue *v = findValue(s, i->name)) {
+        if (InterpValue *v = getValue(s, i->name)) {
             return v;
         } else {
             cerr << "unknown identifier |" << i->name << "|\n";
@@ -173,7 +212,17 @@ InterpValue *interpLValUse(State &s, LVal *lv) {
         }
     } else {
         LValArray *a = dynamic_cast<LValArray *>(lv);
-        assert(false && "unimplemented use of array");
+        assert(a != nullptr && "unknown lval type");
+        InterpValue *v = getValue(s, a->name);
+        assert(v != nullptr && "unable to find value for array");
+
+
+        std::vector<int> ixs;
+        for(int i = 0; i < a->indeces.size(); ++i) {
+            ixs.push_back(interpretExpr(s, a->indeces[i])->as_int());
+        }
+
+        return v->as_array()[ixs];
     }
 
     assert(false && "unreachable");
@@ -186,7 +235,14 @@ InterpValue *interpretExpr(State &s, Expr *e) {
 
     if (ExprInt *i = dynamic_cast<ExprInt *>(e)) {
         return InterpValue::Int(i->i);
-    } else if (ExprFnCall *call = dynamic_cast<ExprFnCall *>(e)) {
+    } 
+    else if (ExprBool *b = dynamic_cast<ExprBool *>(e)) {
+        return InterpValue::Bool(b->b);
+    }
+    else if (ExprString *es = dynamic_cast<ExprString *>(e)) {
+        return InterpValue::String(es->s);
+    }
+    else if (ExprFnCall *call = dynamic_cast<ExprFnCall *>(e)) {
         std::vector<InterpValue *> paramVals;
         for (Expr *p : call->params) {
             paramVals.push_back(interpretExpr(s, p));
@@ -224,21 +280,27 @@ void interpretStmt(State &s, Stmt *stmt) {
             setValue(s, ident->name, interpretExpr(s, stmtset->rhs));
         } else {
             LValArray *arr = dynamic_cast<LValArray *>(stmtset->lval);
-            assert(false && "unimplementd");
+            std::vector<int> ixs;
+            for(Expr *e : arr->indeces) {
+                ixs.push_back(interpretExpr(s, e)->as_int());
+            }
+            InterpValue *v = getValue(s, arr->name);
+            assert(v != nullptr && "unable to find array");
+            v->as_array()[ixs] = interpretExpr(s, stmtset->rhs);
+            // assert(false && "unimplementd");
         }
 
     } else if (StmtLet *let = dynamic_cast<StmtLet *>(stmt)) {
-        createValueSlot(s, let->name);
+        createTypeBasedSlot(s, let->name, let->ty);
         // nothing to be done for a let.
         return;
     } else if (StmtReturn *sr = dynamic_cast<StmtReturn *>(stmt)) {
-        cerr << "stmt: " << stmt << " | retval: " << interpretExpr(s, sr->e)->as_int() << "\n";
         // initialize retval
         s.retval = interpretExpr(s, sr->e);
         return;
     }
     else if (StmtLetSet *ls = dynamic_cast<StmtLetSet *>(stmt)) {
-        createValueSlot(s, ls->name);
+        createTypeBasedSlot(s, ls->name, ls->ty);
         setValue(s, ls->name, interpretExpr(s, ls->rhs));
     } else if (StmtExpr *e = dynamic_cast<StmtExpr *>(stmt)) {
         interpretExpr(s, e->e);
@@ -255,7 +317,18 @@ void interpretStmt(State &s, Stmt *stmt) {
             interpretStmt(s, f->after);
         }
         popScope(s);
-    } else {
+    } 
+    else if (StmtIf *f = dynamic_cast<StmtIf *>(stmt)) {
+        if (interpretExpr(s, f->cond)->as_bool()) {
+            interpretStmtBlock(s, f->inner);
+        } else if (f->tail) {
+            interpretStmt(s, f->tail);
+        }
+    }
+    else if (StmtTailElse *e = dynamic_cast<StmtTailElse *>(stmt)) {
+        interpretStmtBlock(s, e->inner);
+    }
+    else {
         cerr << "unknown statement:\n";
         stmt->print(cerr);
         assert(false && "unknown statement");
@@ -268,7 +341,7 @@ InterpValue* interpretFnDefn(FnDefn f, std::vector<InterpValue *> args, State &s
     pushScope(s);
     assert(args.size() == f.formals.size());
     for (int i = 0; i < args.size(); ++i) {
-        createValueSlot(s, f.formals[i]);
+        createTypeBasedSlot(s, f.formals[i], f.ty->paramsty[i]);
         setValue(s, f.formals[i], args[i]);
     }
 
@@ -288,14 +361,31 @@ InterpValue* interpretFnDefn(FnDefn f, std::vector<InterpValue *> args, State &s
     }
 }
 
-void interpret(Program *p) {
+State initState() {
     State s;
+    createScalarSlot(s, "stdin");
+    setValue(s, "stdin", InterpValue::File(stdin));
+
+
+    createScalarSlot(s, "stdout");
+    setValue(s, "stdout", InterpValue::File(stdout));
+
+
+    createScalarSlot(s, "stderr");
+    setValue(s, "stderr", InterpValue::File(stderr));
+
+    return s;
+}
+
+void interpret(Program *p) {
+    State s = initState();
+
     FnDefn *main = nullptr;
     for (FnDefn *f : p->fndefns) {
         if (f->name == "main") {
             main = f;
         }
-        createValueSlot(s, f->name);
+        createScalarSlot(s, f->name);
         setValue(s, f->name, InterpValue::Function(f));
     }
 

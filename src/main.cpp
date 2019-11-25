@@ -782,7 +782,9 @@ int compile_program(int argc, char **argv, tf::Program *p) {
         outs() << c.mod;
     }
 
-    interpret(p);
+    for(int i = 1; i < argc; ++i) {
+        if (!strcmp(argv[i], "--interp")) interpret(p);
+    }
 
     // Setup for codegen
     /*
