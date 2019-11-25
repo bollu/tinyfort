@@ -82,7 +82,6 @@ InterpValue *interpretCall(State &s, std::string name,
     } else if (name == "print") {
         for (InterpValue *v : args) {
             v->print(cout);
-            cout << "\n";
             return InterpValue::Void();
         }
     } else if (name == "fputs") {
@@ -244,6 +243,9 @@ InterpValue *interpretExpr(State &s, Expr *e) {
     }
     else if (ExprString *es = dynamic_cast<ExprString *>(e)) {
         return InterpValue::String(es->s);
+    }
+    else if (ExprChar *c = dynamic_cast<ExprChar *>(e)) {
+        return InterpValue::Char(c->c);
     }
     else if (ExprFnCall *call = dynamic_cast<ExprFnCall *>(e)) {
         std::vector<InterpValue *> paramVals;
