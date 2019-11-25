@@ -69,13 +69,18 @@ void pushScope(State &s) {
 void popScope(State &s) { s.scopes.pop_back(); }
 
 InterpValue *interpretFnDefn(FnDefn f, std::vector<InterpValue *> args,
-                             State &s);
+                             State s);
 InterpValue *interpretExpr(State &s, Expr *e);
 void interpretStmt(State &s, Stmt *stmt);
 
 InterpValue *interpretCall(State &s, std::string name,
                            std::vector<InterpValue *> args) {
-    // cout << "interpretCall: " << name << "\n";
+    // cout << "interpretCall: " << name << "(";
+    // for (InterpValue *v : args) {
+    //     v->print(cout);
+    //     cout << ", ";
+    // }
+    // cout << ")\n";
     if (name == "readint64") {
         int i;
         cin >> i;
@@ -126,7 +131,12 @@ void InterpValue::print(std::ostream &o) {
             o << "void";
             break;
         case InterpValueType::Float:
-        case InterpValueType::Array:
+            o << this->f; 
+            break;
+        case InterpValueType::Array: {
+            o << "ARRAY";
+            break;
+         }
         case InterpValueType::Function:
         case InterpValueType::Reference:
             assert(false && "unimplemented print.");
@@ -180,7 +190,7 @@ InterpValue *interpretBinop(State &s, ExprBinop *b) {
         }
         case (BinopLeq): {
             if (l->is_int())
-                return InterpValue::Bool(l->as_int() < r->as_int());
+                return InterpValue::Bool(l->as_int() <= r->as_int());
 
             assert(false && "unreachable");
             break;
@@ -348,14 +358,18 @@ void interpretStmt(State &s, Stmt *stmt) {
             interpretStmt(s, f->after);
         }
         popScope(s);
-    } else if (StmtIf *f = dynamic_cast<StmtIf *>(stmt)) {
-        if (interpretExpr(s, f->cond)->as_bool()) {
-            interpretStmtBlock(s, f->inner);
-        } else if (f->tail) {
-            interpretStmt(s, f->tail);
+    } else if (StmtIf *if_ = dynamic_cast<StmtIf *>(stmt)) {
+        pushScope(s);
+        if (interpretExpr(s, if_->cond)->as_bool()) {
+            interpretStmtBlock(s, if_->inner);
+        } else if (if_->tail) {
+            interpretStmt(s, if_->tail);
         }
+        if (s.retval) { popScope(s); return; };
     } else if (StmtTailElse *e = dynamic_cast<StmtTailElse *>(stmt)) {
+        pushScope(s);
         interpretStmtBlock(s, e->inner);
+        if (s.retval) { popScope(s); return; };
     }
     else if (StmtWhileLoop *w = dynamic_cast<StmtWhileLoop *>(stmt)) {
         pushScope(s);
@@ -378,8 +392,19 @@ void interpretStmt(State &s, Stmt *stmt) {
 // fnDefn does not take State by reference since it's supposed to be a new
 // scope.
 InterpValue *interpretFnDefn(FnDefn f, std::vector<InterpValue *> args,
-                             State &s) {
+                             State s) {
     pushScope(s);
+    if (args.size() != f.formals.size()) {
+        cerr << "invalid function call: | ";
+        f.print(cerr);
+        cerr << "(";
+        for (InterpValue *v : args) {
+            v->print(cerr);
+            cerr << ", ";
+
+        }
+        cerr <<")";
+    }
     assert(args.size() == f.formals.size());
     for (int i = 0; i < args.size(); ++i) {
         createTypeBasedSlot(s, f.formals[i], f.ty->paramsty[i]);
@@ -418,7 +443,7 @@ State initState() {
     return s;
 }
 
-void interpret(Program *p) {
+void interpret(Program *p, int argc, char **argv) {
     State s = initState();
 
     FnDefn *main = nullptr;
@@ -435,5 +460,10 @@ void interpret(Program *p) {
                 "anything.\n";
     }
 
-    interpretFnDefn(*main, {}, s);
+    if (main->formals.size() == 0) {
+        interpretFnDefn(*main, {}, s);
+    } else {
+        assert(main->formals.size() == 2);
+        // interpretFnDefn(*main, {InterpValue::Int(argc), argv}, s);
+    }
 };

@@ -783,7 +783,7 @@ int compile_program(int argc, char **argv, tf::Program *p) {
     }
 
     for(int i = 1; i < argc; ++i) {
-        if (!strcmp(argv[i], "--interp")) interpret(p);
+        if (!strcmp(argv[i], "--interp")) interpret(p, argc, argv);
     }
 
     // Setup for codegen

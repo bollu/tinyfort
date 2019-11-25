@@ -142,4 +142,4 @@ struct Interpreter {
     Scope<std::string, InterpValue *> values;
 };
 
-void interpret(tf::Program *p);
+void interpret(tf::Program *p, int argc, char **argv);
