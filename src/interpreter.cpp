@@ -104,7 +104,48 @@ InterpValue *interpretCall(State &s, std::string name,
         fputc(c, f);
         fflush(f);
         return InterpValue::Void();
-    } else {
+    } else if (name == "argvlen") {
+        const int i = args[0]->as_int();
+        ArrVal &argv = args[1]->as_array(); // argv
+        auto it = argv.find({i});
+        assert(it != argv.end());
+
+        ArrVal &s = it->second->as_array();
+
+        return InterpValue::Int(s.rbegin()->first[0]);
+    }
+    else if (name == "getargv") {
+        const int i = args[0]->as_int();
+        ArrVal &argv = args[1]->as_array(); // argv
+        auto it = argv.find({i});
+        assert(it != argv.end());
+
+        ArrVal &s = it->second->as_array();
+
+        // copy values into out.
+        ArrVal &out = args[2]->as_array();
+
+        for(auto k2v : s) { out[k2v.first] = k2v.second; }
+
+        return InterpValue::Void();
+
+    }
+    else if (name == "fflush") {
+        FILE *f = args[0]->as_file();
+        fflush(f);
+        return InterpValue::Void();
+    }
+    else if (name == "fopen") {
+        std::string path = args[0]->as_string();
+        std::string mode = args[1]->as_string();
+        FILE *f = fopen(path.c_str(), mode.c_str());
+        return InterpValue::File(f);
+    }
+    else if (name == "fgetc") {
+        FILE *f = args[0]->as_file();
+        return InterpValue::Char(fgetc(f));
+    }
+    else {
         InterpValue *v = getValue(s, name);
         if (v == nullptr) {
             cerr << "Unknown function call: |" << name << "|";
@@ -157,6 +198,7 @@ InterpValue *interpretBinop(State &s, ExprBinop *b) {
         }
         case (BinopSub): {
             if (l->is_int()) return InterpValue::Int(l->as_int() - r->as_int());
+            if (l->is_char()) return InterpValue::Char(l->as_char() - r->as_char());
             assert(false && "unreachable");
             break;
         }
@@ -191,6 +233,8 @@ InterpValue *interpretBinop(State &s, ExprBinop *b) {
         case (BinopLeq): {
             if (l->is_int())
                 return InterpValue::Bool(l->as_int() <= r->as_int());
+            if (l->is_char())
+                return InterpValue::Bool(l->as_char() <= r->as_char());
 
             assert(false && "unreachable");
             break;
@@ -205,6 +249,8 @@ InterpValue *interpretBinop(State &s, ExprBinop *b) {
         case (BinopGeq): {
             if (l->is_int())
                 return InterpValue::Bool(l->as_int() >= r->as_int());
+            if (l->is_char())
+                return InterpValue::Bool(l->as_char() >= r->as_char());
             assert(false && "unreachable");
             break;
         }
@@ -267,6 +313,14 @@ InterpValue *interpLValUse(State &s, LVal *lv) {
     assert(false && "unreachable");
 }
 
+bool typeIsBaseType(Type *t, TypeBaseName name) {
+    if (TypeBase *b = dynamic_cast<TypeBase *>(t)) {
+        return b->t == name;
+    } else {
+        return false;
+    }
+}
+
 InterpValue *interpretExpr(State &s, Expr *e) {
     // cerr << "interpreting: |";
     // e->print(cerr);
@@ -295,7 +349,38 @@ InterpValue *interpretExpr(State &s, Expr *e) {
         return interpLValUse(s, elv->lval);
     } else if (ExprBinop *b = dynamic_cast<ExprBinop *>(e)) {
         return interpretBinop(s, b);
-    } else {
+    } else if (ExprCast *c = dynamic_cast<ExprCast *>(e)) {
+        InterpValue *v = interpretExpr(s, c->e);
+        if (typeIsBaseType(c->castty, TypeBaseName::Int)) {
+            if (v->is_char()) {
+                return InterpValue::Int(v->as_char());
+            }
+            else if (v->is_int()) {
+                return InterpValue::Int(v->as_int());
+            }
+        }
+        else if (typeIsBaseType(c->castty, TypeBaseName::Char)) {
+            if (v->is_char()) {
+                return InterpValue::Char(v->as_char());
+            }
+            else if (v->is_int()) {
+                return InterpValue::Char(v->as_int());
+            }
+        }
+        cout << "---\n"; c->print(cout);
+        cout << "\nv: "; v->print(cout);
+        cout << "\ntype: " ; c->castty->print(cout);
+        cout.flush();
+
+        assert(false && "unknown type cast");
+    }
+    else if (ExprNegate *n = dynamic_cast<ExprNegate *>(e)) {
+        InterpValue *v = interpretExpr(s, n->e);
+        if (v->is_int())
+            return InterpValue::Int(-1 * v->as_int());
+        assert(false && "unreachable");
+    }
+    else {
         cerr << "unknown expression: |";
         e->print(cerr);
         cerr << "|";

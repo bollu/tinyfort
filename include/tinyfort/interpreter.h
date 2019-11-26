@@ -96,8 +96,12 @@ class InterpValue {
     }
 
     int as_int() const {
-        assert(type == InterpValueType::Int);
-        return i;
+        if (type == InterpValueType::Int) {
+            return i;
+        } else if (type == InterpValueType::Char) {
+            return c;
+        }
+        assert(false && "calling as_int on something that is neither int nor char");
     }
 
     bool as_bool() const {
@@ -129,6 +133,7 @@ class InterpValue {
 
     bool is_int() const { return (type == InterpValueType::Int); }
     bool is_float() const { return (type == InterpValueType::Float); }
+    bool is_char() const { return (type == InterpValueType::Char); }
 
     tf::FnDefn *as_function() const {
         assert(type == InterpValueType::Function);
