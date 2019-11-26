@@ -13,6 +13,8 @@ $ compile-and-link.sh ../examples/prog1.f90
 ```
 
 ### Interpreter stuff
-- prog8 glitches
-- prog10 also glitches
 - prog11, prog12 have a bug related to arguments
+
+### Programs
+- prog10 needs 3 arguments: (n, m, o)
+

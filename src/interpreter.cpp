@@ -464,6 +464,15 @@ void interpret(Program *p, int argc, char **argv) {
         interpretFnDefn(*main, {}, s);
     } else {
         assert(main->formals.size() == 2);
-        // interpretFnDefn(*main, {InterpValue::Int(argc), argv}, s);
+        std::map<Index, InterpValue *> ix2str;
+
+        cout << "argc: " << argc << "\n";
+        cout.flush();
+        for(int i = 0; i < argc; ++i) {
+            cout << "- argv[" << i << "]: " << argv[i] << "\n";
+            ix2str[{i}] = InterpValue::String(std::string(argv[i]));
+        }
+
+        interpretFnDefn(*main, {InterpValue::Int(argc), InterpValue::Array(ix2str)}, s);
     }
 };

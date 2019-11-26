@@ -769,6 +769,7 @@ void debugVerifyModule(llvm::Module &m) {
     }
 }
 
+// filename [--interp [args]]
 int compile_program(int argc, char **argv, tf::Program *p) {
     p->print(std::cerr);
     Codegen c(*p);
@@ -782,8 +783,20 @@ int compile_program(int argc, char **argv, tf::Program *p) {
         outs() << c.mod;
     }
 
-    for(int i = 1; i < argc; ++i) {
-        if (!strcmp(argv[i], "--interp")) interpret(p, argc, argv);
+    if (!strcmp(argv[2], "--interp")) {
+        // we need to prune argv
+        char **iargv = (char **)malloc(sizeof(char *) * (argc - 2));
+        int ix = 0;
+        for (int i = 0; i < argc; i++) {
+            if (i == 1 || i == 2) {
+                continue;
+            } else {
+                iargv[ix] = (char *)malloc(strlen(argv[i] + 1));
+                strcpy(iargv[ix], argv[i]);
+                ix += 1;
+            }
+        }
+        interpret(p, argc - 2, iargv);
     }
 
     // Setup for codegen
