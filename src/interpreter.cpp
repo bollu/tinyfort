@@ -145,6 +145,12 @@ InterpValue *interpretCall(State &s, std::string name,
         FILE *f = args[0]->as_file();
         return InterpValue::Char(fgetc(f));
     }
+    else if (name == "ungetc") {
+        char c = args[0]->as_char();
+        FILE *f = args[1]->as_file();
+        ungetc(c, f);
+        return InterpValue::Void();
+    }
     else {
         InterpValue *v = getValue(s, name);
         if (v == nullptr) {
@@ -255,13 +261,13 @@ InterpValue *interpretBinop(State &s, ExprBinop *b) {
             break;
         }
         case (BinopCmpEq): {
-            if (l->is_int())
+            if (l->is_int() || l->is_char())
                 return InterpValue::Bool(l->as_int() == r->as_int());
             assert(false && "unreachable");
             break;
         }
         case (BinopCmpNeq): {
-            if (l->is_int())
+            if (l->is_int() || l->is_char())
                 return InterpValue::Bool(l->as_int() != r->as_int());
             assert(false && "unreachable");
             break;
@@ -304,8 +310,14 @@ InterpValue *interpLValUse(State &s, LVal *lv) {
             ixs.push_back(interpretExpr(s, a->indeces[i])->as_int());
         }
 
+        // need semantics for unsaturated arrays :(
         ArrVal &arr = v->as_array();
         auto it = arr.find(ixs);
+        if (it == arr.end()) {
+            cout << "array out of bounds:\n";
+            lv->print(cout, 1);
+            cout.flush();
+        }
         assert(it != arr.end());
         return it->second;
     }
@@ -376,9 +388,11 @@ InterpValue *interpretExpr(State &s, Expr *e) {
     }
     else if (ExprNegate *n = dynamic_cast<ExprNegate *>(e)) {
         InterpValue *v = interpretExpr(s, n->e);
-        if (v->is_int())
-            return InterpValue::Int(-1 * v->as_int());
-        assert(false && "unreachable");
+        return InterpValue::Int(-1 * v->as_int());
+    }
+    else if (ExprNot *not_ = dynamic_cast<ExprNot *>(e)) {
+        InterpValue *v = interpretExpr(s, not_->e);
+        return InterpValue::Bool(!v->as_bool());
     }
     else {
         cerr << "unknown expression: |";
